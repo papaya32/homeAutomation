@@ -1,0 +1,17 @@
+sitemap osh label="Owen Satellite House"
+{
+        Frame label="Desk Lights" {
+                Switch item=BR1_desk1 label="Left Desk Light"
+                Switch item=BR1_desk2 label="Right Desk Light"
+                Switch item=BR1_desk3 label="TV Light"
+                Switch item=BR1_desk4 label="LED Lights"
+        }
+        Frame label="Wall Lights" {
+                Switch item=BR1_wall1 label="Wall Light"
+        }
+        Frame label="Night Lights"{
+                Switch item=BR1_bed1 label="Bedside Light"
+                Switch item=BR1_temp label="Temporary Lights Off"
+                Switch item=BR1_nightMode label="Nighttime Mode" icon="moon"
+        }
+}
