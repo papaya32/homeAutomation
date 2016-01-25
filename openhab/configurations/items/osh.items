@@ -1,0 +1,13 @@
+Group All
+
+Group gBR1              "Bedroom 1"             <bedroom>       (gFF)
+
+/* Lights */
+Switch BR1_desk1        "Left Desk Light"       (gBR1, Lights)  {mqtt=">[broker:osh/bed/desk1/com:command:ON:1],>[broker:osh/bed/desk1/com:command:OFF:0],<[broker:osh/bed/desk1/stat:state:default]"}
+Switch BR1_desk2        "Right Desk Light"      (gBR1, Lights)  {mqtt=">[broker:osh/bed/desk2/com:command:ON:1],>[broker:osh/bed/desk2/com:command:OFF:0],<[broker:osh/bed/desk2/stat:state:default]"}
+Switch BR1_desk3        "TV Light"              (gBR1, Lights)  {mqtt=">[broker:osh/bed/desk3/com:command:ON:1],>[broker:osh/bed/desk3/com:command:OFF:0],<[broker:osh/bed/desk3/stat:state:default]"}
+Switch BR1_desk4        "LED Lights"            (gBR1, Lights)  {mqtt=">[broker:osh/bed/desk4/com:command:ON:1],>[broker:osh/bed/desk4/com:command:OFF:0],<[broker:osh/bed/desk4/stat:state:default]"}
+Switch BR1_bed1         "Bedside Lights"        {mqtt=">[broker:osh/bed/bed1/com:command:ON:1],>[broker:osh/bed/bed1/com:command:OFF:0],<[broker:osh/bed/bed1/stat:state:default]"}
+Switch BR1_wall1        "Wall Light"            {mqtt=">[broker:osh/bed/wall1/com:command:ON:1],>[broker:osh/bed/wall1/com:command:OFF:0],<[broker:osh/bed/wall1/stat:state:default]"}
+Switch BR1_nightMode    "Nighttime Mode"        {mqtt=">[broker:osh/bed/nightMode/com:command:ON:1],>[broker:osh/bed/nightMode/com:command:OFF:0],<[broker:osh/bed/nightMode/stat:state:default]"}
+Switch BR1_temp         "Temporary Switch"      {mqtt=">[broker:osh/bed/all/temp:command:ON:0],>[broker:osh/bed/all/temp:command:OFF:1],<[broker:osh/bed/all/tempStat:state:default]"}
