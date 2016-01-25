@@ -31,14 +31,14 @@ int relayPin = 14;
 int ledPin = 16;
 int servoPin = 5;
 
-int buttonPin = 4;
-int buttonPinOff = 12;
-int buttonLock = 2;
-int buttonUnlock = 15;
-int buttonWait = 13;
+#define buttonWall 4
+#define buttonAll 12
+#define buttonLock 2
+#define buttonUnlock 15
+#define buttonWait 13
 
 int numButtons = 5;
-char buttonArray[numButtons] = {buttonPin, buttonPinOff, buttonLock, buttonUnlock, buttonWait};
+char buttonArray [5] = {buttonWall, buttonAll, buttonLock, buttonUnlock, buttonWait};
 
 int lockDegree = 150;
 
@@ -61,7 +61,7 @@ void callback(char*, byte*, unsigned int);  //callback function for when subscri
 
 void setup() {
   pinMode(relayPin, OUTPUT);  //relay pin
-  pinMode(buttonPin, INPUT);  //button
+  pinMode(buttonWall, INPUT);  //button
   lightOff();  //initializes relay and LED pins
   Serial.begin(115200);  //initializes baud rate for serial monitor
   Serial.println("Wall Light Pap Version 0.9");  //for my reference
@@ -253,7 +253,7 @@ void buttonPress()
     {
       switch (buttonArray[i])
       {
-        case buttonLock:
+        case buttonLock :
           lockDoor(1);
           client.publish(lock_stat, "ON");
           delay(20);
@@ -303,7 +303,7 @@ void buttonPress()
           }
           break;
       }
-      while (digitalRead(buttonArray[i] == HIGH)
+      while (digitalRead(buttonArray[i] == HIGH))
       {
         delay(5);
       }
