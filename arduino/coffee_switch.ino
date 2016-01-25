@@ -1,3 +1,25 @@
+/*This is the code that will be living on the coffee maker.
+It has a few key functions. It utilizes the built in LEDs
+and buttons on the coffee maker board to minimize overhad.
+The default LED indicating when it's on is controlled by the
+esp for status updates (mqtt & wifi connecting). The esp
+updates the led by checking when the coffee maker's onboard
+computer is sending to this led. The positive lead of the
+status LED from the board should be connected to the onPin.
+That way we can have the fundamental function of the status
+LED while maintaining accurate statuses.
+
+Additionally, in order to prevent turning on the coffee maker
+via mqtt (openHAB or otherwise) while there is no coffee or
+water inside the machine, a prep button has been added. To
+operate, simply press that button (making it HIGH) when
+you put water and coffee into the coffee maker. This will
+hopefully keep it from accidentally burning up.
+
+//SIGNED//
+JACK W. O'REILLY
+25 Jan 2016*/
+
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>  //mqtt client library
 
