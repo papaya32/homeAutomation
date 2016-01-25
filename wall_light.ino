@@ -21,24 +21,31 @@ const char* temp_stat = "osh/bed/all/tempStat";
 const char* lock_stat = "osh/bed/lock/stat";
 
 bool currentStateButton = LOW;  //initializing boolean status variables (for toggling)
-bool lastStateButton = LOW;
-bool currentStateButtonAll = LOW;
+bool lastStateButtonWall = LOW;
 bool lastStateButtonAll = LOW;
 
 bool lightStat = HIGH;
+bool lockStat = LOW;  //low is unlocked; high locked
 
 int relayPin = 14;
 int ledPin = 16;
 int servoPin = 5;
+
 int buttonPin = 4;
-int buttonPinAll = 12;
+int buttonPinOff = 12;
+int buttonLock = 2;
+int buttonUnlock = 15;
+int buttonWait = 13;
+
+int numButtons = 5;
+char buttonArray[numButtons] = {buttonPin, buttonPinOff, buttonLock, buttonUnlock, buttonWait};
+
 int lockDegree = 150;
 
 void lightOn();  //functiion for turning on lights
 void lightOff();  //turning lights off
 void dimmer();  //called when mqtt disconnected, slowly turns on and off the button LED using PWM
-void pushTest();  //function that listens for button push, called in main loop and in dimmer function
-void pushTestAll();
+void buttonPress();  //function that listens for button push, called in main loop and in dimmer function
 void lockDoor(int);
 
 Servo lockServo;
@@ -174,8 +181,7 @@ void loop() {
     reconnect();  //call reconnect function
   }
   client.loop();  //keeps searching subscriptions, absolutely required
-  //pushTest();  //checks for button press
-  //pushTestAll();
+  //buttonPress();  //checks for button press
 }
 
 void lightOn()  //lights on function
@@ -203,74 +209,14 @@ void dimmer()  //dimmer function (for recognizing disconnect when in wall)
   for (i = 0; i < 1023; i++) //loop from dark to bright in ~3.1 seconds
   {
     analogWrite(ledPin, i);  //set PWM rate
-    pushTest();  //call button press function (so switch can be used when offline)
-    pushTestAll();
+    buttonPress();  //call button press function (so switch can be used when offline)
     delay(3);  //ideal timing for dimming rate
   }
   for (i = 1023; i > 0; i--) //slowly turn back off
   {
     analogWrite(ledPin, i);
-    pushTest();
-    pushTestAll();
+    buttonPress();
     delay(3);
-  }
-}
-
-
-void pushTest()  //function to test for button press
-{
-  currentStateButton = digitalRead(buttonPin);  //current state is read from pin
-  if (currentStateButton == HIGH && lastStateButton == LOW) //if button is being pressed, and was previously off
-  {
-    lightOn();  //turn lights on
-    delay(20);  //rudimentary debounce
-    lastStateButton = HIGH;  //set "previous" state
-    while (digitalRead(buttonPin) == HIGH)  //while button is being pressed
-    {
-      delay(5);  //keeps the esp from crashing :)
-    }
-  }
-  else if (currentStateButton == HIGH && lastStateButton == HIGH) //just toggled off
-  {
-    lightOff();
-    delay(20);
-    lastStateButton = LOW;
-    while (digitalRead(buttonPin) == HIGH)  //while button is being pressed
-    {
-      delay(5);//yayy
-    }
-  }
-}
-
-void pushTestAll()  //function to test for button press
-{
-  currentStateButtonAll = digitalRead(buttonPinAll);  //current state is read from pin
-  if (currentStateButtonAll == HIGH && lastStateButtonAll == LOW) //if button is being pressed, and was previously off
-  {
-    client.publish(temp_com, "1");
-    client.publish(temp_stat, "OFF");
-    if (!lightStat)
-    {
-      lightOn();
-    }
-    delay(20);  //rudimentary debounce
-    lastStateButtonAll = HIGH;  //set "previous" state
-    while (digitalRead(buttonPinAll) == HIGH)  //while button is being pressed
-    {
-      delay(5);  //keeps the esp from crashing :)
-    }
-  }
-  else if (currentStateButtonAll == HIGH && lastStateButtonAll == HIGH) //just toggled off
-  {
-    client.publish(temp_com, "0");
-    client.publish(temp_stat, "ON");
-    lightOff();
-    delay(20);
-    lastStateButtonAll = LOW;
-    while (digitalRead(buttonPinAll) == HIGH)  //while button is being pressed
-    {
-      delay(5);//yayy
-    }
   }
 }
 
@@ -295,4 +241,72 @@ void lockDoor(int mode)
     }
   }
   lockServo.detach();
+}
+
+void buttonPress()
+{
+  int i;
+  for (i = 0; i <= numButtons; i++)
+  {
+    currentStateButton = digitalRead(buttonArray[i]);
+    if (currentStateButton == HIGH)
+    {
+      switch (buttonArray[i])
+      {
+        case buttonLock:
+          lockDoor(1);
+          client.publish(lock_stat, "ON");
+          delay(20);
+          break;
+        case buttonUnlock:
+          lockDoor(0);
+          client.publish(lock_stat, "OFF");
+          delay(20);
+          break;
+        case buttonWait:
+          //put in stuff for magnetic reed switch and time delay
+          delay(20);
+          break;
+        case buttonWall:
+          if (lastStateButtonWall)
+          {
+            lightOff();
+            delay(20);
+            lastStateButtonWall = LOW;
+          }
+          else
+          {
+            lightOn();
+            delay(20);
+            lastStateButtonWall = HIGH;
+          }
+          break;
+        case buttonAll:
+          if (lastStateButtonAll)
+          {
+            client.publish(temp_com, "0");
+            client.publish(temp_stat, "ON");
+            lightOff();
+            delay(20);
+            lastStateButtonAll = LOW;
+          }
+          else
+          {
+            client.publish(temp_com, "1");
+            client.publish(temp_stat, "OFF");
+            if (!lightStat)
+            {
+              lightOn();
+            }
+            delay(20);
+            lastStateButtonAll = HIGH;
+          }
+          break;
+      }
+      while (digitalRead(buttonArray[i] == HIGH)
+      {
+        delay(5);
+      }
+    }
+  }
 }
