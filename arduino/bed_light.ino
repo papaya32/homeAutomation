@@ -1,3 +1,20 @@
+/*This code is designed for a single light and two
+buttons for control. The first button will toggle
+the light while the second will control nightMode.
+By default, the nightMode turns off the light here
+and issues a command, which so far only affects the
+desk lights.
+
+Additionally, there is a status led, which likely
+will be on both the buttons. This is dimmed using
+the dimmer function when mqtt is disconnected,
+blinks when wifi is disconnected, and toggles when
+the light is on or off (opposite of light).
+
+//SIGNED//
+JACK W. O'REILLY
+25 Jan 2016*/
+
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>
 
@@ -19,7 +36,7 @@ bool nightStat;  //status of nightmode
 bool currentStateBed = LOW;  //current state of bed button
 bool lastStateBed = LOW;  //last state of bed button (for toggling)
 bool currentStateNight = LOW;  //see above :)
-bool lastStateBed = LOW;
+bool lastStateNight = LOW;
 
 int relayPin = 14;  //pin for controlling relay which controls light
 int nightModePin = 16;  //pin for night mode button
@@ -163,7 +180,7 @@ void loop() {
 void pushTest()
 {
   currentStateBed = digitalRead(togglePin);  //updates current state of light switch button
-  currentStateNight = digitalRead(nightPin);  //updates current state of night mode button
+  currentStateNight = digitalRead(nightModePin);  //updates current state of night mode button
   if (currentStateBed && !lastStateBed)  //if button is being pushed and was previously off
   {
     lightOn();
@@ -187,7 +204,7 @@ void pushTest()
     client.publish(night_stat, "ON");  //publish status to status topic
     client.publish(night_com, "1");  //publish command for other esp's
     lastStateNight = HIGH;  //update state
-    while (digitalRead(nightPin))  //while button is bing pressed
+    while (digitalRead(nightModePin))  //while button is bing pressed
     {
       delay(5);
     }
@@ -197,7 +214,7 @@ void pushTest()
     client.publish(night_stat, "OFF");
     client.publish(night_com, "0");
     lastStateNight = LOW;
-    while (digitalRead(nightPin))
+    while (digitalRead(nightModePin))
     {
       delay(5);
     }
