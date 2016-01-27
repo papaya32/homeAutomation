@@ -67,7 +67,7 @@ void setup() {
 
   lightOff();  //initializes relay and LED pins
   Serial.begin(115200);  //initializes baud rate for serial monitor
-  delay(50);
+  Serial.println();
   Serial.println("Wall Light Pap Version 1.0!!");  //for my reference
   lightOff();  //initializes LED and relay pins (after wifi blinking probably screwed it up)
   setup_wifi();  //starts up wifi (user defined function)
