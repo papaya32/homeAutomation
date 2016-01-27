@@ -10,7 +10,7 @@ const char* mqtt_server = "192.168.1.108";  //server IP (port later defined)
 
 const char* wall1_com = "osh/bed/wall1/com";  //command mqtt topic
 const char* test_com = "osh/all/test/com";  //command mqtt for live testing
-const char* nightlockMode = "osh/bed/nightlockMode/com";  //command mqtt for night lockMode
+const char* nightMode = "osh/bed/nightMode/com";  //command mqtt for night lockMode
 const char* temp_com = "osh/bed/all/temp"; //command mqtt for temporary shutdown (leaving room for a few minutes)
 const char* lock_com = "osh/bed/lock/com";  //command mqtt for lock
 
@@ -18,26 +18,26 @@ const char* wall1_stat = "osh/bed/wall1/stat";  //status mqtt topic
 const char* test_stat = "osh/all/test/stat";  //status mqtt for live testing
 const char* allPub = "osh/all/stat";  //topic for all esp's to publish their stats
 const char* lock_stat = "osh/bed/lock/stat";  //status mqtt for lock status
+const char* temp_openhab = "osh/bed/temp/openhab";
 
 #define buttonWall 4  //wall light button pin (defined because used in switch statement)
 #define buttonAll 12  //temporary all on/off button pin
-#define buttonLock 2  //lock button
+#define buttonLock 13  //lock button
 #define buttonUnlock 15  //unlock button
-#define buttonWait 13  //wait until I leave button
 
 bool currentStateButton = LOW;  //initializing boolean status variables (for toggling)
 bool lastStateButtonWall = LOW;  //last state of wall "toggle" button
-bool lastStateButtonAll = LOW;  //last state of temp all on/off "toggle" button
+bool lastStateButtonAll = HIGH;  //last state of temp all on/off "toggle" button
 
-bool lightStat = HIGH;
+bool lightStat = LOW;
 bool lockStat = LOW;  //low is unlocked; high locked
 
 int relayPin = 14;  //light relay pin
 int ledPin = 16;  //led PIN (used for indicating connecting to wifi and mqtt broker)
 int servoPin = 5;  //pin for servo used for locking/unlocking door
 
-int numButtons = 5;  //total number of buttons to check for press (must update if button added)
-char buttonArray [5] = {buttonWall, buttonAll, buttonLock, buttonUnlock, buttonWait};  //array of buttons used in button press check function
+#define numButtons 4  //total number of buttons to check for press (must update if button added)
+char* buttonArray[numButtons] = {"4", "12", "13", "15"};
 
 int lockDegree = 150;  //max degree of turn for lock servo
 
@@ -59,18 +59,18 @@ void setup_wifi();  //initializes wifi setup function
 void callback(char*, byte*, unsigned int);  //callback function for when subscribed topic gets a message
 
 void setup() {
-  pinlockMode(relayPin, OUTPUT);  //relay pin
-  pinlockMode(buttonWall, INPUT);  //all button input pins
-  pinlockMode(buttonAll, INPUT);
-  pinlockMode(buttonLock, INPUT);
-  pinlockMode(buttonWait, INPUT);
-  pinlockMode(buttonUnlock, INPUT);
-  
+  pinMode(relayPin, OUTPUT);  //relay pin
+  pinMode(buttonWall, INPUT);  //all button input pins
+  pinMode(buttonAll, INPUT);
+  pinMode(buttonLock, INPUT);
+  pinMode(buttonUnlock, INPUT);
+
   lightOff();  //initializes relay and LED pins
   Serial.begin(115200);  //initializes baud rate for serial monitor
-  Serial.println("Wall Light Pap Version 0.9");  //for my reference
-  setup_wifi();  //starts up wifi (user defined function)
+  delay(50);
+  Serial.println("Wall Light Pap Version 1.0!!");  //for my reference
   lightOff();  //initializes LED and relay pins (after wifi blinking probably screwed it up)
+  setup_wifi();  //starts up wifi (user defined function)
   client.setServer(mqtt_server, 1883);  //connects to mqtt server (second parameter is port)
   client.setCallback(callback);  //sets callback function (as callback function is user defined)
 }
@@ -87,9 +87,18 @@ void setup_wifi() {
   while (WiFi.status() != WL_CONNECTED) {  //while wifi not connected...
     Serial.print(".");
     analogWrite(ledPin, 0);  //turn LED off
-    delay(500);  //wait half a second
+    int i;
+    for (i = 0; i <= 50; i++)
+    {
+      buttonPress();
+      delay(10);
+    }
     analogWrite(ledPin, 1023);  //turn LED on
-    delay(500);  //wait again
+    for (i = 0; i <= 50; i++)
+    {
+      buttonPress();
+      delay(50);
+    }
   }
   Serial.println("");
   Serial.println("WiFi connected");
@@ -119,7 +128,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
   {
     client.publish(test_stat, "OSH Bed Wall Light is Live!");  //publishes that this esp is live
   }
-  else if (((char)payload[0] == '1') && !strcmp(topic, nightlockMode))
+  else if (((char)payload[0] == '1') && !strcmp(topic, nightMode))
   {
     lightOff();
     client.publish(allPub, "OSH Bed Wall Light is OFF");
@@ -159,7 +168,7 @@ void reconnect() {  //this function is called repeatedly until mqtt is connected
       client.loop();
       client.subscribe(test_com);
       client.loop();
-      client.subscribe(nightlockMode);
+      client.subscribe(nightMode);
       client.loop();
       client.subscribe(lock_com);
       client.loop();
@@ -184,7 +193,7 @@ void loop() {
     reconnect();  //call reconnect function
   }
   client.loop();  //keeps searching subscriptions, absolutely required
-  //buttonPress();  //checks for button presses of all buttons
+  buttonPress();  //checks for button presses of all buttons
 }
 
 void lightOn()  //lights on function
@@ -227,34 +236,38 @@ void lockDoor(int lockMode)  //door lock function
 {
   lockServo.attach(servoPin);  //attaches to servo pin
   int i;
+  delay(10);
   if (lockMode)  //if parameter is a 1
   {
     for (i = 0; i <= lockDegree; i++)  //start for loop for each degree of turn
     {
       lockServo.write(i);  //write degree to servo
-      delay(8);  //delay so servo doesn't blow up
+      delay(5);  //delay so servo doesn't blow up
     }
+    Serial.println("Door locked!");
   }
   else if (!lockMode)  //if 0 (unlock)
   {
-    for (i = lockDegree; i >= 0; i--)  //for loop for each degree written to servo
+    for (i = lockDegree; i >= 0; i--)
     {
       lockServo.write(i);
-      delay(8);
+      delay(5);
     }
+    Serial.println("Door unlocked!");
   }
   lockServo.detach();  //detaches so the servo isn't super stiff and the key can be turned (just in case)
 }
 
-void buttonPress()  //function that 
+void buttonPress()  //function that
 {
   int i;
   for (i = 0; i < numButtons; i++)  //for loop that checks each button
   {
-    currentStateButton = digitalRead(buttonArray[i]);  //current state is reading the state of the button
+    int currentButton = atoi(buttonArray[i]);
+    currentStateButton = digitalRead(currentButton);  //current state is reading the state of the button
     if (currentStateButton)  //if the button is currently being pressed...
     {
-      switch (buttonArray[i])  //switch statement where the argument is the pin number that is currently being pushed
+      switch (currentButton)  //switch statement where the argument is the pin number that is currently being pushed
       {
         case buttonLock:  //if it's the lock button...
           lockDoor(1);  //lock the door
@@ -266,15 +279,11 @@ void buttonPress()  //function that
           client.publish(lock_stat, "OFF");
           delay(20);
           break;
-        case buttonWait:  //if it's the wait button...
-          //put in stuff for magnetic reed switch and time delay
-          delay(20);
-          break;
         case buttonWall:  //if it's the button to control the ceiling light
           if (lastStateButtonWall)  //if the last state was HIGH
           {
             lightOff();  //turn the light off
-            delay(20);
+            //delay(20);
             lastStateButtonWall = LOW;  //update current state of ceiling light
           }
           else  //otherwise (last state was off)
@@ -288,13 +297,17 @@ void buttonPress()  //function that
           if (lastStateButtonAll)  //if the last state was HIGH (meaning we're now turning the lights off)
           {
             client.publish(temp_com, "0");  //publish to all esp's to turn off
+            client.publish(temp_openhab, "ON");
+            bool tempLightStat = lightStat;
             lightOff();
             delay(20);
             lastStateButtonAll = LOW;  //update last all state to LOW
+            lightStat = tempLightStat;
           }
           else
           {
             client.publish(temp_com, "1");
+            client.publish(temp_openhab, "OFF");
             if (!lightStat)  //if the last state of the ceiling light was off...
             {
               lightOn();
@@ -304,10 +317,11 @@ void buttonPress()  //function that
           }
           break;
       }
-      while (digitalRead(buttonArray[i]))  //while the current button is still being pressed...
+      while (digitalRead(currentButton))  //while the current button is still being pressed...
       {
         delay(5);  //delay so the esp doesn't blow up/crash :)
       }
+      delay(20);
     }
   }
 }
