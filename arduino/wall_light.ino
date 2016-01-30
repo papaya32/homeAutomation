@@ -172,6 +172,8 @@ void reconnect() {  //this function is called repeatedly until mqtt is connected
       client.loop();
       client.subscribe(lock_com);
       client.loop();
+	  
+	  client.publish(allPub, "Wall Light just reconnected!");
     }
     else  //if we're not connected
     {
