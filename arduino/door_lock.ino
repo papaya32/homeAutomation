@@ -26,13 +26,13 @@ int buttonWait = 5;
 int accessRelay = 2;
 
 int lockDegree = 150;
-unsigned long referenceTime = 250;
+unsigned long referenceTime = 300;
 unsigned long lastTime = 0;
 
 Servo lockServo;
 
 void lockDoor(int);
-void accessVerify();
+void accessVerify(unsigned long);
 void dimmer();
 void setup_wifi();
 void callback(char*, byte*, unsigned int);
@@ -51,29 +51,29 @@ int value = 0;
 
 void setup()
 {
-	pinMode(ledPin, OUTPUT);
-	pinMode(buttonLock, OUTPUT);
-	pinMode(buttonUnlock, OUTPUT);
-	pinMode(buttonWait, OUTPUT);
-	pinMode(accessRelay, OUTPUT);
-	pinMode(doorSensor, INPUT);
-	
-	attachInterrupt(digitalPinToInterrupt(buttonLock), lock, FALLING);
-	attachInterrupt(digitalPinToInterrupt(buttonUnlock), unlock, FALLING);
-	attachInterrupt(digitalPinToInterrupt(buttonWait), wait, FALLING);
-	attachInterrupt(digitalPinToInterrupt(accessRelay), access, CHANGE);
-	
-	Serial.begin(115200);
-	Serial.println();
-	Serial.println("Door lock Pap Version 0.85");
-	setup_wifi();
-	client.setServer(mqtt_server, 1883);
-	client.setCallback(callback);
+  pinMode(ledPin, OUTPUT);
+  pinMode(buttonLock, OUTPUT);
+  pinMode(buttonUnlock, OUTPUT);
+  pinMode(buttonWait, OUTPUT);
+  pinMode(accessRelay, OUTPUT);
+  pinMode(doorSensor, INPUT);
+  
+  attachInterrupt(digitalPinToInterrupt(buttonLock), lock, RISING);
+  attachInterrupt(digitalPinToInterrupt(buttonUnlock), unlock, RISING);
+  attachInterrupt(digitalPinToInterrupt(buttonWait), wait, RISING);
+  attachInterrupt(digitalPinToInterrupt(accessRelay), access, FALLING);
+  
+  Serial.begin(115200);
+  Serial.println();
+  Serial.println("Door lock Pap Version 0.85");
+  setup_wifi();
+  client.setServer(mqtt_server, 1883);
+  client.setCallback(callback);
 }
 
 void setup_wifi()
 {
-	delay(10);
+  delay(10);
   // We start by connecting to a WiFi network
   Serial.println();
   Serial.print("Connecting to ");
@@ -84,17 +84,17 @@ void setup_wifi()
   while (WiFi.status() != WL_CONNECTED) {  //while wifi not connected...
     Serial.print(".");
     analogWrite(ledPin, 0);  //turn LED off
-    delay(500);		
+    delay(500);   
     analogWrite(ledPin, 1023);  //turn LED on
     delay(500);
-	}
+  }
   Serial.println("");
   Serial.println("WiFi connected");
   Serial.println("IP address: ");
   Serial.println(WiFi.localIP());  //prints local ip address
 }
 
-void callback()
+void callback(char* topic, byte* payload, unsigned int length)
 {
   Serial.print("Message arrived [");
   Serial.print(topic);
@@ -108,18 +108,18 @@ void callback()
   if (((char)payload[0] == '1') && !strcmp(topic, door_com))
   {
     lockDoor(1);
-	  client.publish(lock_stat, "ON");
-	  client.publish(allPub, "Living Room Door is Locked");
+    client.publish(door_stat, "ON");
+    client.publish(allPub, "Living Room Door is Locked");
   }
-  else if (((char)payload[0] == '0') && strcmp(topic, lock_com))
+  else if (((char)payload[0] == '0') && strcmp(topic, door_com))
   {
     lockDoor(0);
-	  client.publish(lock_stat, "OFF");
-	  client.publish(allPub, "Living Room Door is Unlocked");
+    client.publish(door_stat, "OFF");
+    client.publish(allPub, "Living Room Door is Unlocked");
   }
   else if (((char)payload[0] == '1') && strcmp(topic, test_com))
   {
-		client.publish(test_stat, "Living Room Door Controller is Online!");
+    client.publish(test_stat, "Living Room Door Controller is Online!");
   }
 }
 
@@ -136,7 +136,7 @@ void reconnect()  //this function is called repeatedly until mqtt is connected t
       client.loop();
       client.subscribe(test_com);
       client.loop();
-  	  client.publish(allPub, "Wall Light just reconnected!");
+      client.publish(allPub, "Wall Light just reconnected!");
     }
     else  //if we're not connected
     {
@@ -154,35 +154,39 @@ void reconnect()  //this function is called repeatedly until mqtt is connected t
 
 void loop()
 {
-	if (!client.connected())
-	{
-		reconnect();
-	}
-	client.loop();
+  if (!client.connected())
+  {
+    reconnect();
+  }
+  client.loop();
 }
 
-void lockDoor(int lockMode)
+void lockDoor(int lockMode)  //door lock function
 {
-	lockServo.attach(servoPin);
-	int i;
-	if (lockMode)
-	{
-		for (i = 0; i <= lockDegree; i++)
-		{
-			lockServo.write(i);
-			delay(5);
-		}
-		Serial.println("Door locked!");
+  lockServo.attach(servoPin);  //attaches to servo pin
+  int i;
+  delayMicroseconds(100000);
+  if (lockMode)  //if parameter is a 1
+  {
+    for (i = 0; i <= lockDegree; i++)  //start for loop for each degree of turn
+    {
+      lockServo.write(i);  //write degree to servo
+      Serial.println(i);
+      delayMicroseconds(5000);  //delay so servo doesn't blow up
+    }
+    Serial.println("Door locked!");
   }
-	else
-	{
-		for (i = lockDegree; i >= 0; i--)
-		{
-			lockServo.write(i);
-			delay(5);
-		}
-	}
-	lockServo.detach();
+  else if (!lockMode)  //if 0 (unlock)
+  {
+    for (i = lockDegree; i >= 0; i--)
+    {
+      lockServo.write(i);
+      Serial.println(i);
+      delayMicroseconds(5000);
+    }
+    Serial.println("Door unlocked!");
+  }
+  lockServo.detach();  //detaches so the servo isn't super stiff and the key can be turned (just in case)
 }
 
 void dimmer()  //dimmer function (for recognizing disconnect when in wall)
@@ -203,30 +207,32 @@ void dimmer()  //dimmer function (for recognizing disconnect when in wall)
 
 void lock()
 {
-	lockDoor(1);
+  lockDoor(1);
 }
 
 void unlock()
 {
-	lockDoor(0);
+  lockDoor(0);
 }
 
 void wait()
 {
-	//Wait shit
+  //Wait shit
+  Serial.println("Something's working");
 }
 
 void access()
 {
-	accessVerify();
+  unsigned long currentTime = millis();
+  accessVerify(currentTime);
 }
 
-void accessVerify()
+void accessVerify(unsigned long currentTime)
 {
-	unsigned long currentTime = millis();
-	if ((currentTime - lastTime) <= referenceTime)
-	{
-		lockDoor(0);
-	}
-	lastTime = currentTime;
+  if ((currentTime - lastTime) <= referenceTime)
+  {
+    lockDoor(0);
+  }
+  lastTime = currentTime;
+  delayMicroseconds(20000);
 }

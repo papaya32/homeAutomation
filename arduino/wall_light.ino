@@ -46,6 +46,8 @@ void lightOff();  //turning lights off
 void dimmer();  //called when mqtt disconnected, slowly turns on and off the button LED using PWM
 void buttonPress();  //function that listens for button pushes, called in main loop and in dimmer function
 void lockDoor(int);  //function to lock door; parameter is lock/unlock (1 for lock, 0 for unlock)
+void setup_wifi();  //initializes wifi setup function
+void callback(char*, byte*, unsigned int);  //callback function for when subscribed topic gets a message
 
 Servo lockServo;  //initializes lock servo
 
@@ -54,9 +56,6 @@ PubSubClient client(espClient);  //specifies esp as the AP connector
 long lastMsg = 0;
 char msg[50];  //initializes char array for mqtt message
 int value = 0;  //utility variable
-
-void setup_wifi();  //initializes wifi setup function
-void callback(char*, byte*, unsigned int);  //callback function for when subscribed topic gets a message
 
 void setup() {
   pinMode(relayPin, OUTPUT);  //relay pin
