@@ -1,3 +1,32 @@
+/*This is the code that will go on the front
+door to control the deadbolt. It will consist
+of three buttons on the deadbolt itself, and
+control wires going to the relay on the access
+controller. It has specific times the relay
+is supposed to be open, to prevent people from
+ripping off the controller and unlocking the door.
+
+There will also be controls in openHAB to control
+the deadbolt via mqtt. 
+
+VERSION NOTES:
+-There is no code for the wait button. It will
+be added later.
+
+-The code has not been tested with either the
+servo nor the access controller, so tweaks
+may have to be made.
+
+-The buttons have also not technically been
+tested, but the code was copied from working
+versions so this should be ok.
+
+-Good comments need to be added.
+
+//SIGNED//
+JACK W. O'REILLY
+31 Jan 2016*/
+
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>  //mqtt client library
 #include <Servo.h>
@@ -171,15 +200,21 @@ void lockDoor(int lockMode)  //door lock function
   int i;
   if (lockMode)  //if parameter is a 1
   {
-    delayMicroseconds(200000);
+		lockServo.attach(servoPin);
+    delay(100);
     lockServo.write(lockDegree);
     Serial.println("Door locked!");
+		delay(500);
+		lockServo.detach();
   }
   else if (!lockMode)  //if 0 (unlock)
   {
-    delayMicroseconds(200000);
+		lockServo.attach(servoPin);
+    delayMicroseconds(100);
     lockServo.write(0);
     Serial.println("Door unlocked!");
+		delay(500);
+		lockServo.detach();
   }  
 }
 
