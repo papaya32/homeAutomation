@@ -57,6 +57,8 @@ void setup()
   pinMode(buttonWait, OUTPUT);
   pinMode(accessRelay, OUTPUT);
   pinMode(doorSensor, INPUT);
+
+  lockServo.attach(servoPin);
   
   attachInterrupt(digitalPinToInterrupt(buttonLock), lock, RISING);
   attachInterrupt(digitalPinToInterrupt(buttonUnlock), unlock, RISING);
@@ -101,10 +103,9 @@ void callback(char* topic, byte* payload, unsigned int length)
   Serial.print("] ");
   for (int i = 0; i < length; i++)  //loop that prints out each character in char array that is message
   {
-    Serial.print((char)payload[i]);  //prints out array element by element
-  }
-  Serial.println();
-  
+    Serial.print((char)payload[i]);  //prints out array element
+    Serial.println();
+  }  
   if (((char)payload[0] == '1') && !strcmp(topic, door_com))
   {
     lockDoor(1);
@@ -163,30 +164,19 @@ void loop()
 
 void lockDoor(int lockMode)  //door lock function
 {
-  lockServo.attach(servoPin);  //attaches to servo pin
   int i;
-  delayMicroseconds(100000);
   if (lockMode)  //if parameter is a 1
   {
-    for (i = 0; i <= lockDegree; i++)  //start for loop for each degree of turn
-    {
-      lockServo.write(i);  //write degree to servo
-      Serial.println(i);
-      delayMicroseconds(5000);  //delay so servo doesn't blow up
-    }
+    delayMicroseconds(200000);
+    lockServo.write(lockDegree);
     Serial.println("Door locked!");
   }
   else if (!lockMode)  //if 0 (unlock)
   {
-    for (i = lockDegree; i >= 0; i--)
-    {
-      lockServo.write(i);
-      Serial.println(i);
-      delayMicroseconds(5000);
-    }
+    delayMicroseconds(200000);
+    lockServo.write(0);
     Serial.println("Door unlocked!");
-  }
-  lockServo.detach();  //detaches so the servo isn't super stiff and the key can be turned (just in case)
+  }  
 }
 
 void dimmer()  //dimmer function (for recognizing disconnect when in wall)
