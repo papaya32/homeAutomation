@@ -3,6 +3,10 @@
    This should include 4 physical switches all wired such that those
    that are on allow the nightModePin signal through to ALL relays.
    After that, the esp should be ready to deploy :D
+   
+   //SIGNED//
+   JACK W. O'REILLY
+   14 FEB 2016
 */
 
 #include <ESP8266WiFi.h>
