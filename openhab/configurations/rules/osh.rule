@@ -1,0 +1,167 @@
+import org.openhab.model.script.actions.Timer
+import org.joda.time.*
+
+rule "voice commands"
+when
+	Item VoiceCommand received command
+then
+	var String command = VoiceCommand.state.toString.toLowerCase
+	if command.contains("wall")
+	{
+		if (BR1_wall1.state == ON)
+		{
+			BR1_wall1.sendCommand(OFF)
+		}
+		else
+		{
+			BR1_wall1.sendCommand(ON)
+		}
+	}		
+	if command.contains("all off")
+	{
+		BR1_All_Off.sendCommand(OFF)
+	}
+	if (command.contains("bedside") || command.contains("bed") || command.contains("add"))
+	{
+		if (BR1_bed1.state == ON)
+		{
+			BR1_bed1.sendCommand(OFF)
+		}
+		else
+		{
+			BR1_bed1.sendCommand(ON)
+		}
+	}
+	if (command.contains("night") || command.contains("mode"))
+	{
+		BR1_nightMode.sendCommand(ON)
+	}
+	if (command.contains("desk one") || command.contains("left desk") || command.contains("desc1"))
+	{
+		if (BR1_desk1.state == ON)
+		{
+			BR1_desk1.sendCommand(OFF)
+		}
+		else
+		{
+			BR1_desk1.sendCommand(ON)
+		}
+	}
+        if (command.contains("desk two") || command.contains("right desk") || command.contains("desc2"))
+        {
+                if (BR1_desk2.state == ON)
+                {
+                        BR1_desk2.sendCommand(OFF)
+                }
+                else
+                {
+                        BR1_desk2.sendCommand(ON)
+                }
+        }
+        if (command.contains("desk three") || command.contains("tv") || command.contains("desc3"))
+        {
+                if (BR1_desk3.state == ON)
+                {
+                        BR1_desk3.sendCommand(OFF)
+                }
+                else
+                {
+                        BR1_desk3.sendCommand(ON)
+                }
+        }
+        if (command.contains("desk for") || command.contains("led") || command.contains("desc4") || command.contains("desk four"))
+        {
+                if (BR1_desk4.state == ON)
+                {
+                        BR1_desk4.sendCommand(OFF)
+                }
+                else
+                {
+                        BR1_desk4.sendCommand(ON)
+                }
+        }
+end
+
+
+
+/*var Timer masterAlarmTime = null
+rule "Master bedroom alarm time"
+when
+	Time cron "0 5 0 * * ?" or
+	Item Alarm_MasterTimeMins received update
+then
+	//var int minutes = (Alarm_MasterTimeMins.state as DecimalType).intValue()
+	var int minutes = 1
+
+	if (masterAlarmTime != null)
+	masterAlarmTime.cancel()
+
+	// work out when the alarm is to fire - start from midnight
+	var DateTime alarmTime = parse(now.getYear() + "-" + now.getMonthOfYear() + "-" + now.getDayOfMonth() + "T00:00")
+
+	// add the number of minutes selected
+	alarmTime = alarmTime.plusMinutes(minutes)
+
+	// if we have already past the alarm time then set it for the following day
+	if (alarmTime.beforeNow)
+	alarmTime = alarmTime.plusDays(1)
+
+	// create a timer to execute the alarm at the specified time
+	masterAlarmTime = createTimer(alarmTime) [| 
+	if (Alarm_Master.state == ON && Holiday.state == OFF && now.getDayOfWeek() < 6) 
+	Alarm_MasterEvent.sendCommand(ON)
+	]
+
+	// update the alarm display time    
+	Alarm_MasterTime.sendCommand(String::format("%02d:%02d", alarmTime.getHourOfDay(), alarmTime.getMinuteOfHour()))
+end
+
+rule "Master bedroom alarm"
+when
+	Item Alarm_MasterEvent received command ON
+then
+	// do your alarm stuff - turn on radio, dim up lights, start the coffee machine...
+	B1_wall1.sendCommand(OFF)
+end
+*/
+
+rule "tester test"
+
+when
+	Item alarm_flash received command ON
+then
+
+	createTimer(now.plusSeconds(1)) [|BR1_wall1.sendCommand(OFF)]
+	createTimer(now.plusSeconds(2)) [|BR1_wall1.sendCommand(ON)]
+	createTimer(now.plusSeconds(2)) [|if (alarm_switch.state == OFF) {BR1_nightMode.sendCommand(ON) BR1_wall1.sendCommand(ON)}]
+
+end
+
+rule "alarm test"
+when
+	Item alarm_trigger received command ON
+then
+	BR1_wall1.sendCommand(OFF)
+	var i = 0
+	var lengthAlarm = 2
+	while (i < 30)
+	{
+		createTimer(now.plusSeconds(i*lengthAlarm)) [|if (alarm_switch.state == ON) {alarm_flash.sendCommand(ON)}]
+		i = i + 1
+	}
+end
+
+
+rule "All Off Button"
+when
+	Item BR1_All_Off received command ON
+then
+	BR1_wall1.sendCommand(OFF)
+end
+
+rule "Alarm Time Trigger"
+when
+	Time cron "0 30 10 * * ?"
+then
+	alarm_trigger.sendCommand(ON)
+end
