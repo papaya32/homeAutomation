@@ -1,17 +1,29 @@
 sitemap osh label="Owen Satellite House"
 {
-        Frame label="Desk Lights" {
-                Switch item=BR1_desk1 label="Left Desk Light"
-                Switch item=BR1_desk2 label="Right Desk Light"
-                Switch item=BR1_desk3 label="TV Light"
-                Switch item=BR1_desk4 label="LED Lights"
-        }
-        Frame label="Wall Lights" {
-                Switch item=BR1_wall1 label="Wall Light"
-        }
-        Frame label="Night Lights"{
-                Switch item=BR1_bed1 label="Bedside Light"
-                Switch item=BR1_temp label="Temporary Lights Off"
-                Switch item=BR1_nightMode label="Nighttime Mode" icon="moon"
-        }
+	Frame label="Desk Lights" {
+		Switch item=BR1_desk1 label="Left Desk Light"
+		Switch item=BR1_desk2 label="Right Desk Light"
+		Switch item=BR1_desk3 label="TV Light"
+		Switch item=BR1_desk4 label="LED Lights"
+	}
+	Frame label="Wall Functions" {
+		Switch item=BR1_wall1 label="Wall Light"
+	}
+	Frame label="Night Lights"{
+		Switch item=BR1_bed1 label="Bedside Light"
+		Switch item=BR1_All_Off label="All Off" mappings=[ON="All Off"]
+		Switch item=BR1_nightMode label="Nighttime Mode" icon="moon" mappings=[ON="Lights Out"]
+	}
+	Frame label="Alarm Options" {
+/*		Text item=alarm_menu icon="sun" {
+			Frame label="Alarm State" {
+				Switch item=alarm_switch label="Alarm Switch"
+			}
+			Frame label="Time Settings"{
+				Setpoint item=alarm_hour minValue=0 maxValue=23 step=1
+				Setpoint item=alarm_min minValue=0 maxValue=60 step=2
+			}
+		} */
+		Switch item=alarm_switch label="Alarm Switch"
+	}
 }
