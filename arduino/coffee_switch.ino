@@ -8,7 +8,6 @@ computer is sending to this led. The positive lead of the
 status LED from the board should be connected to the onPin.
 That way we can have the fundamental function of the status
 LED while maintaining accurate statuses.
-
 Additionally, in order to prevent turning on the coffee maker
 via mqtt (openHAB or otherwise) while there is no coffee or
 water inside the machine, a prep button has been added. To
@@ -18,7 +17,7 @@ hopefully keep it from accidentally burning up.
 
 //SIGNED//
 JACK W. O'REILLY
-25 Jan 2016*/
+21 Feb 2016*/
 
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>  //mqtt client library
@@ -33,7 +32,10 @@ const char* coffee_com = "osh/kit/coffee/com";  //command mqtt topic
 const char* test_com = "osh/all/test/com";  //command mqtt for live testing
 
 const char* coffee_stat = "osh/kit/coffee/stat";  //status mqtt topic
+const char* coffee_prep = "osh/kit/coffee/prep";
 const char* test_stat = "osh/all/test/stat";  //status mqtt for live testing
+const char* openhab_test = "osh/kit/coffee/status";
+const char* allPub = "osh/all/stat";
 
 bool coffeeState = LOW;  //variable for testing if coffee maker on or off
 bool prepStat = LOW;  //state of prep (HIGH if ready to be turned on); only applies to commands over mqtt
@@ -62,6 +64,7 @@ void setup() {
   pinMode(prepButton, INPUT);  //button
   pinMode(onPin, INPUT);  //connects to coffee maker "on" pin
   pinMode(ledPin, OUTPUT);  //connects to led on coffee board for status indication
+  digitalWrite(relayPin, HIGH);
   Serial.begin(115200);  //initializes baud rate for serial monitor
   Serial.println("Coffee Switch Pap Version 0.8");  //for my reference
   setup_wifi();  //starts up wifi (user defined function)
@@ -112,7 +115,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
     }
     else if (!prepStat)  //if prep button hasn't been pressed
     {
-      client.publish(coffee_stat, "Prep button has not been pressed");  //informational message
+      client.publish(allPub, "Prep button has not been pressed");  //informational message
     }
   }
   else if (((char)payload[0] == '0') && !strcmp(topic, coffee_com))
@@ -121,24 +124,13 @@ void callback(char* topic, byte* payload, unsigned int length) {
     if (coffeeState)  //if it's on..
     {
       coffeeSwitch();  //flip the switch
+      client.publish(coffee_stat, "OFF");
     }
   }
   else if (((char)payload[0] == '1') && !strcmp(topic, test_com))
   {
     client.publish(test_stat, "Coffee Controller is online!");
-  }
-  else if (((char)payload[0] == '2') && !strcmp(topic, coffee_com))  //special case for status request
-  {
-    coffeeState = digitalRead(onPin);
-    client.publish(coffee_stat, coffeeState);  //publishes status of coffee maker
-    if (prepStat)  //if the coffee maker is prepped
-    {
-      client.publish(coffee_stat, "Coffee maker is prepped");  //publish readable message
-    }
-    else  //otherwise (coffee maker is not prepped)
-    {
-      client.publish(coffee_stat, "Coffee maker is not prepped");  //publish readable message
-    }
+    client.publish(openhab_test, "ON");
   }
 }
 
@@ -147,7 +139,7 @@ void reconnect() {  //this function is called repeatedly until mqtt is connected
   {
     Serial.print("Attempting MQTT connection...");
     // Attempt to connect
-    client.connect("ESP8266Client");  //connect funtion, must include ESP8266Client
+    client.connect("ESP8266ClientCoffee");  //connect funtion, must include ESP8266Client
     if (client.connected())  //if connected...
     {
       Serial.println("connected");
@@ -187,6 +179,7 @@ void loop() {
   }
   client.loop();  //keeps searching subscriptions, absolutely required
   pushTest();  //tests for prep button press
+  yield();
 }
 
 void coffeeSwitch()
@@ -215,21 +208,22 @@ void pushTest()  //function to test for button press (for prepping coffee maker)
     while (buttonState)  //while button is being pressed
     {
       buttonState = digitalRead(prepButton);  //update status
-      delay(5);  //keeps esp from crashing
+      yield();  //keeps esp from crashing
     }
     coffeeState = digitalRead(onPin);  //updates status of coffee maker to what the onPin says (just in case)
-    client.publish(coffee_stat, "Coffee maker prepped");  //update the status reader
+    client.publish(allPub, "Coffee maker prepped");  //update the status reader
+    client.publish(coffee_prep, "ON");
+    analogWrite(ledPin, 1023);
   }
   coffeeState = digitalRead(onPin);
   //the purpose of the next two ifs is to keep from writing to pins every millisecond, will only do so if the status changes
   if (coffeeState && !lastState)  //if coffee maker is on and was just recently off..
   {
-    analogWrite(ledPin, 1023);  //turn on led
+    analogWrite(ledPin, 0);  //turn on led
     lastState = HIGH;  //updates the previous state
   }
   else if (!coffeeState && lastState)  //otherwise (if coffee maker of off)
   {
-    analogWrite(ledPin, 0);  //turn led off
     lastState = LOW;  //updates the previous state
   }
 }
