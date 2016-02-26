@@ -5,11 +5,11 @@ control wires going to the relay on the access
 controller. It has specific times the relay
 is supposed to be open, to prevent people from
 ripping off the controller and unlocking the door.
-
 There will also be controls in openHAB to control
 the deadbolt via mqtt. 
 
 VERSION NOTES:
+
 -There is no code for the wait button. It will
 be added later.
 
@@ -22,7 +22,6 @@ tested, but the code was copied from working
 versions so this should be ok.
 
 -Good comments need to be added.
-
 //SIGNED//
 JACK W. O'REILLY
 31 Jan 2016*/
@@ -30,6 +29,10 @@ JACK W. O'REILLY
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>  //mqtt client library
 #include <Servo.h>
+//#include <SPI.h>
+//#include <SD.h>
+
+//File root;
 
 // Update these with values suitable for your network.
 
@@ -42,28 +45,31 @@ const char* test_com = "osh/all/test/com";
 
 const char* door_stat = "osh/liv/door/stat";
 const char* test_stat = "osh/all/test/stat";
+const char* openhab_stat = "osh/liv/door/openhab";
+const char* doorbell_stat = "osh/liv/door/doorBell";
 const char* allPub = "osh/all/stat";
 
 bool lockState = LOW;
 
 int servoPin = 14;
-int ledPin = 16;
-int doorSensor = 15;
+int ledPin = 15;
+int doorSensor = 16;
 
 #define buttonUnlock 12
 #define buttonLock 13
 #define buttonWait 4
 #define accessRelay 2
+#define doorBellButt 5
 
 bool currentStateButton = LOW;
 bool lastStateButton = LOW;
 
-#define numButtons 4
-char* buttonArray[numButtons] = {"12", "13", "5", "2"};
+#define numButtons 5
+char* buttonArray[numButtons] = {"12", "13", "5", "2", "5"};
 
 int lockDegree = 150;
 int counter = 0;
-unsigned long referenceTime = 210;
+unsigned long referenceTime = 260;
 
 Servo lockServo;
 
@@ -72,6 +78,7 @@ void dimmer();
 void setup_wifi();
 void callback(char*, byte*, unsigned int);
 void buttonPress();
+void doorBellFunc();
 
 WiFiClient espClient;
 PubSubClient client(espClient);
@@ -79,18 +86,38 @@ long lastMsg = 0;
 char msg[50];
 int value = 0;
 
+//void printDirectory(File, int);
+
 void setup()
 {
+  //Serial.begin(9600);
+
+  //Serial.print("Initializing SD card...");
+  
   pinMode(ledPin, OUTPUT);
-  pinMode(buttonLock, INPUT);
-  pinMode(buttonUnlock, INPUT);
-  pinMode(buttonWait, INPUT);
-  pinMode(accessRelay, INPUT);
-  pinMode(doorSensor, INPUT);
+  pinMode(buttonLock, INPUT_PULLUP);
+  pinMode(buttonUnlock, INPUT_PULLUP);
+  pinMode(buttonWait, INPUT_PULLUP);
+  pinMode(accessRelay, INPUT_PULLUP);
+  pinMode(doorSensor, INPUT_PULLUP);
+
+    // Open serial communications and wait for port to open:
+
+  /*if (!SD.begin(9)) {
+    Serial.println("initialization failed!");
+    return;
+  }
+  Serial.println("initialization done.");
+
+  root = SD.open("/");
+
+  printDirectory(root, 0);
+
+  Serial.println("done!");*/
   
   Serial.begin(115200);
   Serial.println();
-  Serial.println("Door lock Pap Version 0.85");
+  Serial.println("Door lock Pap Version 0.9");
   setup_wifi();
   client.setServer(mqtt_server, 1883);
   client.setCallback(callback);
@@ -130,14 +157,7 @@ void setup_wifi()
 
 void callback(char* topic, byte* payload, unsigned int length)
 {
-  Serial.print("Message arrived [");
-  Serial.print(topic);
-  Serial.print("] ");
-  for (int i = 0; i < length; i++)  //loop that prints out each character in char array that is message
-  {
-    Serial.print((char)payload[i]);  //prints out array element
-    Serial.println();
-  }  
+
   if (((char)payload[0] == '1') && !strcmp(topic, door_com))
   {
     lockDoor(1);
@@ -153,6 +173,7 @@ void callback(char* topic, byte* payload, unsigned int length)
   else if (((char)payload[0] == '1') && strcmp(topic, test_com))
   {
     client.publish(test_stat, "Living Room Door Controller is Online!");
+    client.publish(openhab_stat, "ON");
   }
 }
 
@@ -162,7 +183,7 @@ void reconnect()  //this function is called repeatedly until mqtt is connected t
   {
     Serial.print("Attempting MQTT connection...");
     // Attempt to connect
-    client.connect("ESP8266Client");  //connect funtion, must include ESP8266Client
+    client.connect("ESPClientDo");  //connect funtion, must include ESP8266Client
     if (client.connected())  //if connected...
     {
       client.subscribe(door_com);  //once connected, subscribe
@@ -170,6 +191,7 @@ void reconnect()  //this function is called repeatedly until mqtt is connected t
       client.subscribe(test_com);
       client.loop();
       client.publish(allPub, "Wall Light just reconnected!");
+    client.publish(openhab_stat, "ON");
     }
     else  //if we're not connected
     {
@@ -193,6 +215,7 @@ void loop()
   }
   client.loop();
   buttonPress();
+  yield();
 }
 
 void lockDoor(int lockMode)  //door lock function
@@ -200,21 +223,17 @@ void lockDoor(int lockMode)  //door lock function
   int i;
   if (lockMode)  //if parameter is a 1
   {
-		lockServo.attach(servoPin);
-    delay(100);
+  lockServo.attach(servoPin);
     lockServo.write(lockDegree);
-    Serial.println("Door locked!");
-		delay(500);
-		lockServo.detach();
+  delay(3000);
+  lockServo.detach();
   }
   else if (!lockMode)  //if 0 (unlock)
   {
-		lockServo.attach(servoPin);
-    delayMicroseconds(100);
+    lockServo.attach(servoPin);
     lockServo.write(0);
-    Serial.println("Door unlocked!");
-		delay(500);
-		lockServo.detach();
+    delay(3000);
+    lockServo.detach();
   }  
 }
 
@@ -227,12 +246,14 @@ void dimmer()  //dimmer function (for recognizing disconnect when in wall)
     analogWrite(ledPin, i);  //set PWM rate
     buttonPress();
     delay(3);  //ideal timing for dimming rate
+    yield();
   }
   for (i = 1023; i > 0; i--) //slowly turn back off
   {
     analogWrite(ledPin, i);
     buttonPress();
     delay(3);
+    yield();
   }
 }
 
@@ -243,42 +264,82 @@ void buttonPress()  //function that
   {
     int currentButton = atoi(buttonArray[i]);
     currentStateButton = digitalRead(currentButton);  //current state is reading the state of the button
-    if (currentStateButton)  //if the button is currently being pressed...
+    if (!currentStateButton)  //if the button is currently being pressed...
     {
       switch (currentButton)  //switch statement where the argument is the pin number that is currently being pushed
       {
         case buttonLock:  //if it's the lock button...
           lockDoor(1);  //lock the door
           client.publish(door_stat, "ON");  //publish that the door's locked
-          delay(20);  //"debounce"
           break;
         case buttonUnlock:  //if unlock button..
           lockDoor(0);
           client.publish(door_stat, "OFF");
-          delay(20);
           break;
         case accessRelay:
           counter = 0;
-          while (digitalRead(accessRelay))
+          while (!digitalRead(accessRelay))
           {
             delay(5);
+            yield();
             counter += 5;
           }
-          if ((counter >= (referenceTime - .15 * referenceTime)) || (counter <= (referenceTime + .15 * referenceTime)))
+          if ((counter >= (referenceTime - .1 * referenceTime)) || (counter <= (referenceTime + .1 * referenceTime)))
           {
             lockDoor(0);
           }
-          delay(20);
           break;
         case buttonWait:
-          //button wait shit here
+          int i = 1;
+          while (i <= 5)
+          {
+            if (!digitalRead(doorSensor))
+            {
+              lockDoor(1);
+              i = 6;
+            }
+            i++;
+          }
           break;
-      }
-      while (digitalRead(currentButton))  //while the current button is still being pressed...
+        /*case doorBellButt:
+          doorBellFunc();
+          break;*/
+       }
+      while (!digitalRead(currentButton))  //while the current button is still being pressed...
       {
-        delay(5);  //delay so the esp doesn't blow up/crash :)
+        yield();  //delay so the esp doesn't blow up/crash :)
       }
-      delay(20);
     }
+  yield();
   }
 }
+
+void doorBellFunc()
+{
+  client.publish(doorbell_stat, "ON");
+  yield();
+}
+
+/*void printDirectory(File dir, int numTabs) {
+   while(true) {
+     
+     File entry =  dir.openNextFile();
+     if (! entry) {
+       // no more files
+       break;
+     }
+     for (uint8_t i=0; i<numTabs; i++) {
+       Serial.print('\t');
+     }
+     Serial.print(entry.name());
+     if (entry.isDirectory()) {
+       Serial.println("/");
+       printDirectory(entry, numTabs+1);
+     } else {
+       // files have sizes, directories do not
+       Serial.print("\t\t");
+       Serial.println(entry.size(), DEC);
+     }
+     entry.close();
+   }
+}*/
