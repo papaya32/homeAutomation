@@ -1,6 +1,14 @@
 import org.openhab.model.script.actions.Timer
 import org.joda.time.*
 
+rule "startup rules"
+when
+	System started
+then
+	Kit_coff_stat.sendCommand(OFF)
+end
+
+
 rule "voice commands"
 when
 	Item VoiceCommand received command
@@ -125,7 +133,7 @@ then
 end
 */
 
-rule "tester test"
+rule "alarm flasher"
 
 when
 	Item alarm_flash received command ON
@@ -137,11 +145,12 @@ then
 
 end
 
-rule "alarm test"
+rule "alarm trigger"
 when
 	Item alarm_trigger received command ON
 then
 	BR1_wall1.sendCommand(OFF)
+	pushover("azR46zxQYdovp3w1dKRBtQWX8zmZac", "uVWdfLHKzx57bvgdL638Yz5Hg87oi2", "Time to get up!")
 	var i = 0
 	var lengthAlarm = 2
 	while (i < 30)
@@ -157,11 +166,61 @@ when
 	Item BR1_All_Off received command ON
 then
 	BR1_wall1.sendCommand(OFF)
+	BR1_bed1.sendCommand(OFF)
 end
 
-rule "Alarm Time Trigger"
+
+rule "coffee"
 when
-	Time cron "0 30 10 * * ?"
+	Item Kit_coff_butt received update
 then
-	alarm_trigger.sendCommand(ON)
+	if (Kit_coff_prep.state == OFF)
+	{
+		Kit_coff_prep.sendCommand(ON)
+		createTimer(now.plusSeconds(1)) [|Kit_coff_prep.sendCommand(OFF)]
+		Kit_coff_ready.sendCommand(ON)
+	}
+	else
+	{
+		Kit_coff_toggle.sendCommand(ON)
+		Kit_coff_prep.sendCommand(OFF)
+		createTimer(now.plusSeconds(2)) [|Kit_coff_ready.sendCommand(OFF)]
+	}
 end
+
+
+rule "coffee toggle"
+when
+	Item Kit_coff_toggle received command ON
+then
+	if ((Kit_coff_ready.state == ON) && (Kit_coff_stat.state == ON))
+	{
+		Kit_coff_stat.sendCommand(OFF)
+		Kit_coff_command.sendCommand(ON)		
+		pushover("azR46zxQYdovp3w1dKRBtQWX8zmZac", "uVWdfLHKzx57bvgdL638Yz5Hg87oi2", "Coffee Shutoff")
+	}
+	else if ((Kit_coff_ready.state == ON) && (Kit_coff_stat.state == OFF))
+	{
+		Kit_coff_stat.sendCommand(ON)
+		Kit_coff_command.sendCommand(ON)
+		Kit_coff_ready.sendCommand(OFF)
+		pushover("azR46zxQYdovp3w1dKRBtQWX8zmZac", "uVWdfLHKzx57bvgdL638Yz5Hg87oi2", "Coffee is Brewing!")
+	}
+	else if ((Kit_coff_ready.state == OFF) && (Kit_coff_stat.state == ON))
+	{
+		Kit_coff_stat.sendCommand(OFF)
+		Kit_coff_command.sendCommand(ON)		
+		pushover("azR46zxQYdovp3w1dKRBtQWX8zmZac", "uVWdfLHKzx57bvgdL638Yz5Hg87oi2", "Coffee Shutoff")
+	}		
+end
+
+
+
+rule "doorbell"
+when
+	Item door_bell received command ON
+then
+	BR1_wall1.sendCommand(OFF)
+	pushover("azR46zxQYdovp3w1dKRBtQWX8zmZac", "uVWdfLHKzx57bvgdL638Yz5Hg87oi2", "Someone's at the door")
+end
+
