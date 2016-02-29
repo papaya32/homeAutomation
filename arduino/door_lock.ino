@@ -7,24 +7,18 @@ is supposed to be open, to prevent people from
 ripping off the controller and unlocking the door.
 There will also be controls in openHAB to control
 the deadbolt via mqtt. 
-
-
 VERSION NOTES:
-
 -As of writing this, it is functioning flawlessly,
 and I'm just waiting on my breakout pins to make
 this a permanent and not-super-jenk operation.
-
 -Right now to complete the wait button feature,
 you just hav to add the door sensor to the correct
 pin, and the other to the ground, and it should
 function just fine.
-
 -Good comments need to be added as always.
-
 //SIGNED//
 JACK W. O'REILLY
-26 Feb 2016*/
+28 Feb 2016*/
 
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>  //mqtt client library
@@ -49,13 +43,13 @@ const char* doorbell_stat = "osh/liv/door/doorbell";
 bool lockState = LOW;
 
 int servoPin = 14;
-int lockLed = 15;
+int lockLed = 16;
 int unlockLed = 5;
-int doorSensor = 16;
+int doorSensor = 15;
 
 #define buttonUnlock 12
-#define buttonLock 13
-#define buttonWait 4
+#define buttonLock 4
+#define buttonWait 13
 #define accessRelay 2
 #define doorBell 0
 
@@ -63,17 +57,18 @@ bool currentStateButton = LOW;
 bool lastStateButton = LOW;
 
 #define numButtons 5
-char* buttonArray[numButtons] = {"12", "13", "4", "2", "0"};
+char* buttonArray[numButtons] = {"12", "4", "13", "2", "0"};
 
-int lockDegree = 150;
+int lockDegree = 130;
 int counter = 0;
 int waitVar = 1;
+unsigned long loopTime = 0;
 unsigned long referenceTime = 265;
 
 Servo lockServo;
 
 void lockDoor(int);
-void dimmer();
+void dimmer(int);
 void setup_wifi();
 void callback(char*, byte*, unsigned int);
 void buttonPress();
@@ -206,7 +201,7 @@ void reconnect()  //this function is called repeatedly until mqtt is connected t
       {
         setup_wifi();  //calls wifi setup function
       }
-      dimmer();  //dim the button LED on and off (around 5 second delay)
+      dimmer(1);  //dim the button LED on and off (around 5 second delay)
     }
   }
 }
@@ -220,6 +215,19 @@ void loop()
   client.loop();
   buttonPress();
   yield();
+  if ((millis() - loopTime) >= 300000)
+  {
+    pinMode(lockLed, OUTPUT);
+    pinMode(unlockLed, OUTPUT);
+    pinMode(buttonLock, INPUT_PULLUP);
+    pinMode(buttonUnlock, INPUT_PULLUP);
+    pinMode(buttonWait, INPUT_PULLUP);
+    pinMode(accessRelay, INPUT_PULLUP);
+    pinMode(doorSensor, INPUT_PULLUP);
+    pinMode(doorBell, INPUT_PULLUP);
+    loopTime = millis();
+    yield();
+  }
 }
 
 void lockDoor(int lockMode)  //door lock function
@@ -250,7 +258,7 @@ void lockDoor(int lockMode)  //door lock function
   }  
 }
 
-void dimmer()  //dimmer function (for recognizing disconnect when in wall)
+void dimmer(int tester)  //dimmer function (for recognizing disconnect when in wall)
 {
   int i;
   int pos;
@@ -258,7 +266,10 @@ void dimmer()  //dimmer function (for recognizing disconnect when in wall)
   {
     analogWrite(lockLed, i);  //set PWM rate
     analogWrite(unlockLed, i);
-    buttonPress();
+    if (tester)
+    {
+      buttonPress();
+    }
     delay(3);  //ideal timing for dimming rate
     yield();
   }
@@ -266,7 +277,10 @@ void dimmer()  //dimmer function (for recognizing disconnect when in wall)
   {
     analogWrite(lockLed, i);
     analogWrite(unlockLed, i);
-    buttonPress();
+    if (tester)
+    {
+      buttonPress();
+    }
     delay(3);
     yield();
   }
@@ -284,21 +298,27 @@ void buttonPress()  //function that
       switch (currentButton)  //switch statement where the argument is the pin number that is currently being pushed
       {
         case buttonLock:  //if it's the lock button...
+          Serial.println("buttonLock");
           //client.publish(door_stat, "ON");  //publish that the door's locked
           lockDoor(1);  //lock the door
           break;
         case buttonUnlock:  //if unlock button..
+          Serial.println("buttonUnlock");
           //client.publish(door_stat, "OFF");
           lockDoor(0);
           break;
         case accessRelay:
+          /*Serial.println("accessRelay");
           counter = 0;
-          while (!digitalRead(accessRelay))
+          Serial.println(digitalRead(accessRelay));
+          while (digitalRead(accessRelay))
           {
             delay(5);
             yield();
             counter += 5;
           }
+          Serial.print("Counter: ");
+          Serial.println(counter);
           if ((counter >= (referenceTime - .12 * referenceTime)) && (counter <= (referenceTime + .12 * referenceTime)))
           {
             lockDoor(0);
@@ -306,11 +326,13 @@ void buttonPress()  //function that
           else
           {
             delay(5000);
-          }
+          }*/
+          lockDoor(0);
           yield();
           break;
         case buttonWait:
-          waitVar = 1;
+          Serial.println("buttonWait");
+          /*waitVar = 1;
           delay(5000);
           while (waitVar <= 5)
           {
@@ -322,9 +344,17 @@ void buttonPress()  //function that
             delay(3000);
             yield();
             waitVar++;
+          }*/
+          while (!digitalRead(buttonWait))
+          {
+            yield();
           }
+          delay(30);
+          dimmer(0);
+          lockDoor(1);
           break;
         case doorBell:
+          Serial.println("doorBell");
           client.publish(doorbell_stat, "ON");
           break;
        }
