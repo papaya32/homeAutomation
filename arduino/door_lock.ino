@@ -18,7 +18,7 @@ function just fine.
 -Good comments need to be added as always.
 //SIGNED//
 JACK W. O'REILLY
-28 Feb 2016*/
+26 Feb 2016*/
 
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>  //mqtt client library
@@ -48,10 +48,10 @@ int unlockLed = 5;
 int doorSensor = 15;
 
 #define buttonUnlock 12
-#define buttonLock 4
+#define buttonLock 0
 #define buttonWait 13
 #define accessRelay 2
-#define doorBell 0
+#define doorBell 4
 
 bool currentStateButton = LOW;
 bool lastStateButton = LOW;
@@ -59,7 +59,7 @@ bool lastStateButton = LOW;
 #define numButtons 5
 char* buttonArray[numButtons] = {"12", "4", "13", "2", "0"};
 
-int lockDegree = 130;
+int lockDegree = 120;
 int counter = 0;
 int waitVar = 1;
 unsigned long loopTime = 0;
@@ -241,7 +241,7 @@ void lockDoor(int lockMode)  //door lock function
     lockServo.attach(servoPin);
     delay(20);
     lockServo.write(0);
-    delay(3000);
+    delay(1250);
     lockServo.detach();
   }
   else if (!lockMode)  //if 0 (unlock)
@@ -253,7 +253,7 @@ void lockDoor(int lockMode)  //door lock function
     lockServo.attach(servoPin);
     delay(20);
     lockServo.write(lockDegree);
-    delay(3000);
+    delay(1250);
     lockServo.detach();
   }  
 }
@@ -295,6 +295,8 @@ void buttonPress()  //function that
     currentStateButton = digitalRead(currentButton);  //current state is reading the state of the button
     if (!currentStateButton)  //if the button is currently being pressed...
     {
+      client.loop();
+      yield();
       switch (currentButton)  //switch statement where the argument is the pin number that is currently being pushed
       {
         case buttonLock:  //if it's the lock button...
