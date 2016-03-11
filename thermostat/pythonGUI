@@ -1,0 +1,135 @@
+import paho.mqtt.client as mqtt
+import wx
+import wx.lib.agw.gradientbutton as GB
+from wx.lib import buttons
+
+class TransparentText(wx.StaticText):
+  def __init__(self, parent, id=wx.ID_ANY, label='', pos=wx.DefaultPosition,
+             size=wx.DefaultSize, style=wx.TRANSPARENT_WINDOW, name='transparenttext'):
+    wx.StaticText.__init__(self, parent, id, label, pos, size, style, name)
+
+    self.Bind(wx.EVT_PAINT, self.on_paint)
+    self.Bind(wx.EVT_ERASE_BACKGROUND, lambda event: None)
+    self.Bind(wx.EVT_SIZE, self.on_size)
+
+  def on_paint(self, event):
+    bdc = wx.PaintDC(self)
+    dc = wx.GCDC(bdc)
+
+    font_face = self.GetFont()
+    font_color = self.GetForegroundColour()
+
+    font1 = wx.Font(30, wx.FONTFAMILY_TELETYPE, wx.NORMAL, wx.FONTWEIGHT_LIGHT, underline=False, faceName="", encoding=wx.FONTENCODING_DEFAULT)
+
+    dc.SetFont(font1)
+    dc.SetTextForeground('white')
+    dc.DrawText(self.GetLabel(), 0, 0)
+
+  def on_size(self, event):
+    self.Refresh()
+    event.Skip()
+    
+class TransparentText2(wx.StaticText):
+  def __init__(self, parent, id=wx.ID_ANY, label='', pos=wx.DefaultPosition,
+             size=wx.DefaultSize, style=wx.TRANSPARENT_WINDOW, name='transparenttext'):
+    wx.StaticText.__init__(self, parent, id, label, pos, size, style, name)
+
+    self.Bind(wx.EVT_PAINT, self.on_paint)
+    self.Bind(wx.EVT_ERASE_BACKGROUND, lambda event: None)
+    self.Bind(wx.EVT_SIZE, self.on_size)
+
+  def on_paint(self, event):
+    bdc = wx.PaintDC(self)
+    dc = wx.GCDC(bdc)
+
+    font_face = self.GetFont()
+    font_color = self.GetForegroundColour()
+
+    font1 = wx.Font(60, wx.FONTFAMILY_TELETYPE, wx.NORMAL, wx.FONTWEIGHT_LIGHT, underline=False, faceName="", encoding=wx.FONTENCODING_DEFAULT)
+
+    dc.SetFont(font1)
+    dc.SetTextForeground('red')
+    dc.DrawText(self.GetLabel(), 0, 0)
+
+  def on_size(self, event):
+    self.Refresh()
+    event.Skip()
+
+class MyForm(wx.Frame):
+
+    def __init__(self):
+        wx.Frame.__init__(self, None, wx.ID_ANY, "Gradient Button with MQTT", size=(480,300))
+        panel = wx.Panel(self, wx.ID_ANY)
+        locale = wx.Locale(wx.LANGUAGE_ENGLISH)
+
+        background_file = 'testtest.png'
+        bmp1 = wx.Image(background_file, wx.BITMAP_TYPE_ANY).ConvertToBitmap()
+        self.bitmap1 = wx.StaticBitmap(self, -1, bmp1, (0,0))
+
+        bmp2 = wx.Bitmap("arrow.png", wx.BITMAP_TYPE_ANY)
+        bmp3 = wx.Bitmap("arrow3.png", wx.BITMAP_TYPE_ANY)
+
+##        tester = buttons.GenBitmapToggleButton(bitmap=bmp3, id=-1, name='tester', parent=self.bitmap1, pos=wx.Point(152, 24), size=wx.Size(31, 30))
+##        SetBitmapDisabled(bmp2)
+##        tester.SetBitmapSelected(bmp3)
+##        self.gBTBright.Bind(wx.EVT_BUTTON, self.OnGBTB, id=wxID_FRAME1GBTBRIGHT)
+        
+
+        wx.ToggleButton(self.bitmap1, -1, 'A/C', (25, 210), size=(60, 25))
+        wx.ToggleButton(self.bitmap1, -1, 'Heat', (25, 170), size=(60, 25))
+        wx.ToggleButton(self.bitmap1, -1, 'Fan On', (115, 210), size=(60, 25))
+        wx.ToggleButton(self.bitmap1, -1, 'Manual', (230, 185), size=(50, 50))
+##        wx.BitmapToggleButton(self.bitmap1, -1, 'tester', (40,40), size=(50,50))
+        
+        sBitMap = wx.StaticBitmap(self.bitmap1, -1, wx.Bitmap("arrow.png", wx.BITMAP_TYPE_ANY), (360,30), (bmp2.GetWidth(), bmp2.GetHeight()))
+        sBitMap.Bind(wx.EVT_LEFT_DOWN, self.publishTest)
+        self.sBitMap2 = wx.StaticBitmap(self.bitmap1, -1, wx.Bitmap("arrow3.png", wx.BITMAP_TYPE_ANY), (360,165), (bmp3.GetWidth(), bmp3.GetHeight()))
+        self.sBitMap2.Bind(wx.EVT_LEFT_DOWN, self.publishTest)
+        font = wx.Font(30, wx.FONTFAMILY_TELETYPE, wx.NORMAL, wx.FONTWEIGHT_LIGHT, underline=False, faceName="", encoding=wx.FONTENCODING_DEFAULT)
+
+        setTemp = TransparentText(self.bitmap1, -1, '70.0', (338, 105), (100, 100))
+        airTemp = TransparentText2(self.bitmap1, -1, '69.8', (35, 35), (200,200))
+
+    def publishTest(self, event):
+        client.publish("osh/hello", "Hello World!")
+        self.sBitMap2.Destroy()
+
+def on_connect(mosq, obj, rc):
+    client.subscribe("f", 0)
+    print("rc: " + str(rc))
+
+def on_message(mosq, obj, msg):
+    global message
+    print(msg.topic + " " + str(msg.qos) + " " + str(msg.payload))
+
+def on_publish(mosq, obj, mid):
+    print("mid: " + str(mid))
+
+def on_subscribe(mosq, obj, mid, granted_qos):
+    print("Subscribed: " + str(mid) + " " + str(granted_qos))
+
+def on_log(mosq, obj, level, string):
+    print(string)
+
+if __name__ == "__main__":
+    app = wx.App(False)
+    frame = MyForm()
+    frame.Show()
+
+    client = mqtt.Client()
+    # Assign event callbacks
+    client.on_message = on_message
+    client.on_connect = on_connect
+    client.on_publish = on_publish
+    client.on_subscribe = on_subscribe
+    # Connect
+    client.connect("192.168.1.108", 1883,60)
+    print "here"
+    client.publish("test", "HI")
+    client.loop_start()
+    app.MainLoop()
+
+    
+
+# Continue the network loop
+
