@@ -257,10 +257,12 @@ void pushTest()
   }
   else if (currentStateNight && lastStateNight)  //if currently pushed and previously was on
   {
+    tempStat = LOW;
     client.publish(night_stat, "OFF");
     client.publish(night_com, "0");
   client.publish(allOff, "ON");
     lastStateNight = LOW;
+    lightSwitch(LOW);
     while (digitalRead(nightModePin))
     {
       delay(5);
