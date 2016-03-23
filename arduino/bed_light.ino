@@ -20,7 +20,7 @@ Compiles and deployment will be tested shortly.
 
 //SIGNED//
 JACK W. O'REILLY
-11 Mar 2016*/
+23 Mar 2016*/
 
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>
@@ -62,6 +62,7 @@ PubSubClient client(espClient);  //selects connectivity client for PubSubClient 
 long lastMsg = 0;
 char msg[50];
 int value = 0;
+int delayTime = 200;
 
 void setup_wifi();  //wifi setup function initialization
 void callback(char*, byte*, unsigned int);  //callback function for when one of the subscriptions gets a hit
@@ -140,12 +141,12 @@ void callback(char* topic, byte* payload, unsigned int length) {
   {
   tempStat = bed1Stat;
     lightSwitch(HIGH);
-    nightStat = HIGH;
+    lastStateNight = HIGH;
   }
   else if (((char)payload[0] == '0') && !strcmp(topic, night_com))  //if night mode is turned off
   {
     lightSwitch(tempStat);
-    nightStat = LOW;
+    lastStateNight = LOW;
   }
   else if (((char)payload[0] == '1') && !strcmp(topic, openhab_start))
   {
@@ -230,6 +231,7 @@ void pushTest()
       delay(5);  //delay so esp doesn't crash
     yield();
     }
+    delay(delayTime);
   }
   else if (currentStateBed && bed1Stat)  //if currently pushed and previously was on
   {
@@ -239,6 +241,7 @@ void pushTest()
       delay(5);
     yield();
     }
+    delay(delayTime);
   }
   if (currentStateNight && !lastStateNight)  //if button is being pushed and was previously off
   {
@@ -250,6 +253,7 @@ void pushTest()
       delay(5);
     yield();
     }
+    delay(delayTime);
   }
   else if (currentStateNight && lastStateNight)  //if currently pushed and previously was on
   {
@@ -262,6 +266,7 @@ void pushTest()
       delay(5);
     yield();
     }
+    delay(delayTime);
   }
 }
 
