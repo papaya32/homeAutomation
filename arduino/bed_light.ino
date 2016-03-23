@@ -11,9 +11,16 @@ the dimmer function when mqtt is disconnected,
 blinks when wifi is disconnected, and toggles when
 the light is on or off (opposite of light).
 
+When nightMode is on and the nightMode button is
+pressed again, it publishes to the allOff topic,
+which effectively shuts off all the lights in the
+bedroom.
+
+Compiles and deployment will be tested shortly.
+
 //SIGNED//
 JACK W. O'REILLY
-25 Jan 2016*/
+11 Mar 2016*/
 
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>
@@ -26,17 +33,21 @@ const char* bed1_com = "osh/bed/bed1/com";  //command mqtt for bedside light
 const char* night_com = "osh/bed/nightMode/com";  //command mqtt for night mode
 const char* temp_com = "osh/bed/all/temp";  //command for temporarily switching lights off then on if previously on
 const char* test_com = "osh/all/test/com";  //command for testing which esp's are online
+const char* openhab_start = "osh/all/start";
 
 const char* bed1_stat = "osh/bed/bed1/stat";  //stat mqtt for publishing status of bedside light
 const char* night_stat = "osh/bed/nightMode/stat";  //publish status of night mode for when button is pushed
 const char* test_stat = "osh/all/test/stat";  //place to publish replies to test command
+const char* openhab_reconnect = "osh/bed/bed1/reconnect";
+const char* openhab_test = "osh/bed/bed1/openhab";
+const char* allOff = "osh/bed/all/allOff";
 
-bool bed1Stat = LOW;  //initializes status of light to off
 bool nightStat;  //status of nightmode
 bool currentStateBed = LOW;  //current state of bed button
-bool lastStateBed = LOW;  //last state of bed button (for toggling)
+bool bed1Stat = LOW;  //last state of bed button (for toggling)
 bool currentStateNight = LOW;  //see above :)
 bool lastStateNight = LOW;
+bool tempStat = LOW;
 
 int relayPin = 14;  //pin for controlling relay which controls light
 int nightModePin = 16;  //pin for night mode button
@@ -53,13 +64,12 @@ void setup_wifi();  //wifi setup function initialization
 void callback(char*, byte*, unsigned int);  //callback function for when one of the subscriptions gets a hit
 void dimmer();  //dimmer functino for status led when mqtt is disconnected
 void pushTest();  //function for testing when a button is pressed
-void lightOff();  //turns the light off
-void lightOn();  //vice versa
+void lightSwitch(bool);
 
 void setup() {
   pinMode(relayPin, OUTPUT);  //relay pin as output
-  pinMode(nightModePin, INPUT);
-  pinMode(togglePin, INPUT);
+  pinMode(nightModePin, INPUT_PULLUP);
+  pinMode(togglePin, INPUT_PULLUP);
   pinMode(ledPin, OUTPUT);
   Serial.begin(115200);
   Serial.println("OSH Bed Bed Light Pap Version 0.8");  //for my reference
@@ -81,9 +91,9 @@ void setup_wifi() {
   while (WiFi.status() != WL_CONNECTED)  //if not connected...
   {
     analogWrite(ledPin, 0);  //turn led off
-    delay(250);  //wait a quarter of a second
+    delay(500);  //wait half of a second
     analogWrite(ledPin, 1023);  //turn led on
-    delay(250);
+    delay(500);
     Serial.print(".");
   }
 
@@ -103,38 +113,53 @@ void callback(char* topic, byte* payload, unsigned int length) {
   Serial.println();
   if (((char)payload[0] == '1') && (strcmp(topic, bed1_com) == 0))  //if bed light gets on command
   {
-    lightOn();  //turn light on
+    lightSwitch(HIGH);  //turn light on
   }
   else if (((char)payload[0] == '0') && (strcmp(topic, bed1_com) == 0))  //bed light gets off command
   {
-    lightOff();
+    lightSwitch(LOW);
   }
   else if (((char)payload[0] == '0') && !strcmp(topic, temp_com))  //if temp com topic gets "off" command
   {
-    digitalWrite(relayPin, LOW);  //turn off the light
+    tempStat = bed1Stat;
+	lightSwitch(LOW);
   }
   else if (((char)payload[0] == '1') && !strcmp(topic, temp_com))  //if temp mode turns back on
   {
-    digitalWrite(relayPin, bed1Stat);  //switch light to whatever the last status was
+    lightSwitch(tempStat);  //switch light to whatever the last status was
   }
   else if (((char)payload[0] == '1') && !strcmp(topic, test_com))  //if test topic was called
   {
     client.publish(test_stat, "OSH Bed Bed Light is Online!");  //publish esp status
+	client.publish(openhab_test, "ON");
   }
   else if (((char)payload[0] == '1') && !strcmp(topic, night_com))  //if night mode is turned on
   {
-    if (bed1Stat)  //if light is on
-    {
-      lightOff();  //turn light off
-      bed1Stat = HIGH;  //set back to high because lightOff() turns it to low (for night mode turning off later)
-    }
+	tempStat = bed1Stat;
+    lightSwitch(HIGH);
   }
   else if (((char)payload[0] == '0') && !strcmp(topic, night_com))  //if night mode is turned off
   {
-    if (bed1Stat)  //if previous status was HIGH
-    {
-      lightOn();  //turn it back on
-    }
+    lightSwitch(tempStat);
+  }
+  else if (((char)payload[0] == '1') && !strcmp(topic, openhab_start))
+  {
+	 if (nightStat)
+	 {
+	    client.publish(night_com, "ON");
+	 }
+	 if (!nightStat)
+	 {
+	    client.publish(night_com, "OFF");
+	 }
+	 if (bed1Stat)
+	 {
+	    client.publish(bed1_stat, "ON");
+	 }
+	 if (!bed1Stat)
+	 {
+	    client.publish(bed1_stat, "OFF");
+	 }
   }
 }
 
@@ -154,6 +179,12 @@ void reconnect()
       client.loop();
       client.subscribe(temp_com);
       client.loop();
+	  client.subscribe(night_com);
+	  client.loop();
+	  client.subscribe(openhab_start);
+	  client.loop();
+	  
+	  client.publish(openhab_reconnect, "ON");	  
     } else {
       Serial.print("failed, rc=");
       Serial.print(client.state());
@@ -164,6 +195,10 @@ void reconnect()
       }
       // Wait 5 seconds before retrying
       dimmer();  //dims and relights the led ot indicate to user that mqtt is not connected, takes 6.2 sec
+	  if (!bed1Stat)
+	  {
+	    analogWrite(ledPin, 1023);
+	  }
     }
   }
 }
@@ -174,29 +209,30 @@ void loop() {
     reconnect();  //reconnect funtion
   }
   client.loop();
+  yield();
   pushTest();  //tests for button presses
 }
 
 void pushTest()
 {
-  currentStateBed = digitalRead(togglePin);  //updates current state of light switch button
-  currentStateNight = digitalRead(nightModePin);  //updates current state of night mode button
-  if (currentStateBed && !lastStateBed)  //if button is being pushed and was previously off
+  currentStateBed = !digitalRead(togglePin);  //updates current state of light switch button
+  currentStateNight = !digitalRead(nightModePin);  //updates current state of night mode button
+  if (currentStateBed && !bed1Stat)  //if button is being pushed and was previously off
   {
-    lightOn();
-    lastStateBed = HIGH;  //update last button state for next time button is pressed
-    while (digitalRead(togglePin))  //while button is being pressed...
+    lightSwitch(HIGH);
+    while (!digitalRead(togglePin))  //while button is being pressed...
     {
       delay(5);  //delay so esp doesn't crash
+	  yield();
     }
   }
-  else if (currentStateBed && lastStateBed)  //if currently pushed and previously was on
+  else if (currentStateBed && bed1Stat)  //if currently pushed and previously was on
   {
-    lightOff();
-    lastStateBed = LOW;
-    while (digitalRead(togglePin))
+    lightSwitch(LOW);
+    while (!digitalRead(togglePin))
     {
       delay(5);
+	  yield();
     }
   }
   if (currentStateNight && !lastStateNight)  //if button is being pushed and was previously off
@@ -204,19 +240,22 @@ void pushTest()
     client.publish(night_stat, "ON");  //publish status to status topic
     client.publish(night_com, "1");  //publish command for other esp's
     lastStateNight = HIGH;  //update state
-    while (digitalRead(nightModePin))  //while button is bing pressed
+    while (!digitalRead(nightModePin))  //while button is bing pressed
     {
       delay(5);
+	  yield();
     }
   }
   else if (currentStateNight && lastStateNight)  //if currently pushed and previously was on
   {
     client.publish(night_stat, "OFF");
     client.publish(night_com, "0");
+	client.publish(allOff, "ON");
     lastStateNight = LOW;
-    while (digitalRead(nightModePin))
+    while (!digitalRead(nightModePin))
     {
       delay(5);
+	  yield();
     }
   }
 }
@@ -228,28 +267,32 @@ void dimmer()
   {
     analogWrite(ledPin, i);  //set PWM rate
     pushTest();  //call button press function (so switch can be used when offline)
+	yield();
     delay(3);  //ideal timing for dimming rate
   }
   for (i = 1023; i > 0; i--) //slowly turn back off
   {
     analogWrite(ledPin, i);
     pushTest();
+	yield();
     delay(3);
   }
 }
 
-void lightOn()
+void lightSwitch(bool state)
 {
-  digitalWrite(relayPin, HIGH);   // Turn the LED on (Note that LOW is the voltage level
-  bed1Stat = HIGH;
-  client.publish(bed1_stat, "ON");
-  analogWrite(ledPin, 0);
-}
-
-void lightOff()
-{
-  digitalWrite(relayPin, LOW);   // Turn the LED on (Note that LOW is the voltage level
-  bed1Stat = LOW;
-  client.publish(bed1_stat, "OFF");
-  analogWrite(ledPin, 1023);
+  if (state)
+  {
+    digitalWrite(relayPin, HIGH);   // Turn the LED on (Note that LOW is the voltage level
+    bed1Stat = HIGH;
+    client.publish(bed1_stat, "ON");
+    analogWrite(ledPin, 0);
+  }
+  else
+  {
+    digitalWrite(relayPin, LOW);   // Turn the LED on (Note that LOW is the voltage level
+    bed1Stat = LOW;
+    client.publish(bed1_stat, "OFF");
+    analogWrite(ledPin, 1023);
+  }
 }
