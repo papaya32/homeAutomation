@@ -1,23 +1,29 @@
 /*This is the code that will be living on the coffee maker.
-It has a few key functions. It utilizes the built in LEDs
-and buttons on the coffee maker board to minimize overhad.
-The default LED indicating when it's on is controlled by the
-esp for status updates (mqtt & wifi connecting). The esp
-updates the led by checking when the coffee maker's onboard
-computer is sending to this led. The positive lead of the
-status LED from the board should be connected to the onPin.
-That way we can have the fundamental function of the status
-LED while maintaining accurate statuses.
-Additionally, in order to prevent turning on the coffee maker
-via mqtt (openHAB or otherwise) while there is no coffee or
-water inside the machine, a prep button has been added. To
-operate, simply press that button (making it HIGH) when
-you put water and coffee into the coffee maker. This will
-hopefully keep it from accidentally burning up.
+It has a few key functions. In terms of interfaces with the
+coffee maker, it is currently limited. It has a relay which
+simulates pressing the on/off button on the board. Additionally
+it has a button with an LED on the side. The primary function
+for this button is to indicate when the machine has been
+prepped. When this happens, the LED will light up, indicating
+it's prepped, and tell the home automation software. If you
+double press the button (currently set to 1 second in the
+home automation software) it will toggle the coffee maker.
+This is, however, handled entirely outside of the machine.
+
+Version Notes:
+
+1. We need to interface the machine's board status LED with
+the ESP to more accurately keep the coffee maker's state.
+
+2. We may still have the problem of the relay sticking open
+on ESP restart. This has been a non issue given the ESP's
+surprising stability, but this version has tried to rectify
+it by writing HIGH immediately after boot.
+
 
 //SIGNED//
 JACK W. O'REILLY
-21 Feb 2016*/
+11 Mar 2016*/
 
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>  //mqtt client library
@@ -30,11 +36,13 @@ const char* mqtt_server = "192.168.1.108";  //server IP (port later defined)
 
 const char* coffee_com = "osh/kit/coffee/com";  //command mqtt topic
 const char* test_com = "osh/all/test/com";  //command mqtt for live testing
+const char* openhab_start = "osh/all/start";  //command for when openhab boots and needs to update statuses
 
 const char* coffee_stat = "osh/kit/coffee/stat";  //status mqtt topic
-const char* coffee_prep = "osh/kit/coffee/prep";
+const char* coffee_prep = "osh/kit/coffee/prep";  //status for prep button
 const char* test_stat = "osh/all/test/stat";  //status mqtt for live testing
-const char* openhab_test = "osh/kit/coffee/status";
+const char* openhab_test = "osh/kit/coffee/openhab";  //for openhab testing if esp online
+const char* openhab_reconnect = "osh/kit/coffee/reconnect";  //to publish to openhab when mqtt reconnects
 const char* allPub = "osh/all/stat";
 
 bool coffeeState = LOW;  //variable for testing if coffee maker on or off
@@ -59,14 +67,17 @@ int value = 0;  //utility variable
 void setup_wifi();  //initializes wifi setup function
 void callback(char*, byte*, unsigned int);  //callback function for when subscribed topic gets a message
 
-void setup() {
+void setup()
+{
   pinMode(relayPin, OUTPUT);  //relay pin
+  digitalWrite(relayPin, HIGH);  //so the coffee maker doesn't turn on on reset
+  
   pinMode(prepButton, INPUT);  //button
   pinMode(onPin, INPUT);  //connects to coffee maker "on" pin
   pinMode(ledPin, OUTPUT);  //connects to led on coffee board for status indication
   digitalWrite(relayPin, HIGH);
   Serial.begin(115200);  //initializes baud rate for serial monitor
-  Serial.println("Coffee Switch Pap Version 0.8");  //for my reference
+  Serial.println("Coffee Switch Pap Version 1.0");  //for my reference
   setup_wifi();  //starts up wifi (user defined function)
   client.setServer(mqtt_server, 1883);  //connects to mqtt server (second parameter is port)
   client.setCallback(callback);  //sets callback function (as callback function is user defined)
@@ -132,6 +143,25 @@ void callback(char* topic, byte* payload, unsigned int length) {
     client.publish(test_stat, "Coffee Controller is online!");
     client.publish(openhab_test, "ON");
   }
+  else if (((char)payload[0] == '1') && !strcmp(topic, openhab_start))
+  {
+    if (coffeeState)
+	{
+      client.publish(coffee_stat, "ON");
+	}
+	if (!coffeeState)
+	{
+	  client.publish(coffee_stat, "OFF");
+	}
+	if (prepStat)
+	{
+	  client.publish(coffee_prep, "ON");
+	}
+	if (!prepStat)
+	{
+	  client.publish(coffee_prep, "OFF");
+	}
+  }
 }
 
 void reconnect() {  //this function is called repeatedly until mqtt is connected to broker
@@ -155,6 +185,10 @@ void reconnect() {  //this function is called repeatedly until mqtt is connected
       client.loop();  //workaround for error in library causing mqtt reconnect issue with multiple subscriptions
       client.subscribe(test_com);
       client.loop();
+	  client.subscribe(openhab_start);
+	  client.loop();
+	  
+	  client.publish(openhab_reconnect, "ON");
       
       if (WiFi.status() != WL_CONNECTED)  //if the wifi is disconnected
       {
@@ -169,6 +203,10 @@ void reconnect() {  //this function is called repeatedly until mqtt is connected
       
       dimmer(); //dims led to indicate status, takes about 6.2 sec
     }
+	if (!prepStat)
+	{
+	  analogWrite(ledPin, 0);
+	}
   }
 }
 void loop() {
@@ -188,7 +226,8 @@ void coffeeSwitch()
   delay(250);  //wait a quarter of a second
   digitalWrite(relayPin, HIGH);  //turn the relay off
   
-  coffeeState = digitalRead(onPin);  //update status to test if coffee maker is on or off
+  bool tempCoff = coffeeState;
+  coffeeState = !tempCoff;
   if (coffeeState)  //if the coffee maker is on..
   {
     analogWrite(ledPin, 1023);  //turn on the indicator led
