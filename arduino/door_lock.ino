@@ -28,7 +28,10 @@ JACK W. O'REILLY
 
 const char* ssid = "oreilly";  //wifi ssid
 const char* password = "9232616cc8";  //wifi password
-const char* mqtt_server = "192.168.1.108";  //server IP (port later defined)
+const char* mqtt_server = "mqtt.oreillyj.com";  //server IP (port later defined)
+int mqtt_port = 1884;
+const char* mqtt_user = "lock1";
+const char* mqtt_pass = "24518000lock1";
 
 const char* door_com = "osh/liv/door/com";
 const char* test_com = "osh/all/test/com";
@@ -40,7 +43,7 @@ const char* openhab_stat = "osh/liv/door/openhab";
 const char* allPub = "osh/all/stat";
 const char* doorbell_stat = "osh/liv/door/doorbell";
 
-bool lockState = LOW;
+bool lockState = HIGH;
 
 int servoPin = 14;
 int lockLed = 16;
@@ -86,7 +89,7 @@ void setup()
   Serial.println();
   Serial.println("Door lock Pap Version 0.9");
   setup_wifi();
-  client.setServer(mqtt_server, 1883);
+  client.setServer(mqtt_server, mqtt_port);
   client.setCallback(callback);
 
   pinMode(lockLed, OUTPUT);
@@ -168,6 +171,7 @@ void callback(char* topic, byte* payload, unsigned int length)
   {
     analogWrite(unlockLed, 1023);
     analogWrite(lockLed, 0);
+    lockState = LOW;
   }
 }
 
@@ -177,7 +181,7 @@ void reconnect()  //this function is called repeatedly until mqtt is connected t
   {
     Serial.print("Attempting MQTT connection...");
     // Attempt to connect
-    client.connect("ESP8266Door");  //connect funtion, must include ESP8266Client
+    client.connect("ESP8266Door", mqtt_user, mqtt_pass);  //connect funtion, must include ESP8266Client
     if (client.connected())  //if connected...
     {
       Serial.println("Connected!");
@@ -215,7 +219,7 @@ void loop()
   client.loop();
   buttonPress();
   yield();
-  if ((millis() - loopTime) >= 300000)
+  /*if ((millis() - loopTime) >= 300000)
   {
     pinMode(lockLed, OUTPUT);
     pinMode(unlockLed, OUTPUT);
@@ -227,7 +231,7 @@ void loop()
     pinMode(doorBell, INPUT_PULLUP);
     loopTime = millis();
     yield();
-  }
+  }*/
 }
 
 void lockDoor(int lockMode)  //door lock function
@@ -243,6 +247,7 @@ void lockDoor(int lockMode)  //door lock function
     lockServo.write(0);
     delay(1250);
     lockServo.detach();
+    lockState = HIGH;
   }
   else if (!lockMode)  //if 0 (unlock)
   {
@@ -255,6 +260,7 @@ void lockDoor(int lockMode)  //door lock function
     lockServo.write(lockDegree);
     delay(1250);
     lockServo.detach();
+    lockState = LOW;
   }  
 }
 
