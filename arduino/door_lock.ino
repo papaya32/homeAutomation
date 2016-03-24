@@ -33,15 +33,19 @@ int mqtt_port = 1884;
 const char* mqtt_user = "lock1";
 const char* mqtt_pass = "24518000lock1";
 
+const char* versionNum = "1.30";
+
 const char* door_com = "osh/liv/door/com";
 const char* test_com = "osh/all/test/com";
 const char* lock_init = "osh/liv/door/persist";
+const char* openhab_start = "osh/all/start";
 
 const char* door_stat = "osh/liv/door/stat";
 const char* test_stat = "osh/all/test/stat";
 const char* openhab_stat = "osh/liv/door/openhab";
 const char* allPub = "osh/all/stat";
 const char* doorbell_stat = "osh/liv/door/doorbell";
+const char* version_stat = "osh/liv/door/version";
 
 bool lockState = HIGH;
 
@@ -87,7 +91,8 @@ void setup()
   Serial.begin(115200);
     
   Serial.println();
-  Serial.println("Door lock Pap Version 0.9");
+  Serial.print("Door lock Pap Version: ");
+  Serial.println(versionNum);
   setup_wifi();
   client.setServer(mqtt_server, mqtt_port);
   client.setCallback(callback);
@@ -166,12 +171,24 @@ void callback(char* topic, byte* payload, unsigned int length)
   {
     client.publish(test_stat, "Living Room Door Controller is Online!");
     client.publish(openhab_stat, "ON");
+    client.publish(version_stat, versionNum);
   }
   else if (((char)payload[0] == '0') && !strcmp(topic, lock_init))
   {
     analogWrite(unlockLed, 1023);
     analogWrite(lockLed, 0);
     lockState = LOW;
+  }
+  else if (((char)payload[0] == '1') && !strcmp(topic, openhab_start))
+  {
+    if (lockState)
+    {
+      client.publish(door_stat, "ON");
+    }
+    if (!lockState)
+    {
+      client.publish(door_stat, "OFF");
+    }
   }
 }
 
@@ -191,6 +208,7 @@ void reconnect()  //this function is called repeatedly until mqtt is connected t
       client.loop();
       client.subscribe(lock_init);
       client.loop();
+      
       client.publish(allPub, "Door Lock just reconnected!");
       client.publish(openhab_stat, "ON");
       analogWrite(lockLed, 1023);
