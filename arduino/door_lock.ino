@@ -33,7 +33,7 @@ int mqtt_port = 1884;
 const char* mqtt_user = "lock1";
 const char* mqtt_pass = "24518000lock1";
 
-const char* versionNum = "1.30";
+const char* versionNum = "1.31";
 
 const char* door_com = "osh/liv/door/com";
 const char* test_com = "osh/all/test/com";
@@ -207,6 +207,8 @@ void reconnect()  //this function is called repeatedly until mqtt is connected t
       client.subscribe(test_com);
       client.loop();
       client.subscribe(lock_init);
+      client.loop();
+      client.subscribe(openhab_start);
       client.loop();
       
       client.publish(allPub, "Door Lock just reconnected!");
