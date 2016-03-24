@@ -7,18 +7,18 @@ is supposed to be open, to prevent people from
 ripping off the controller and unlocking the door.
 There will also be controls in openHAB to control
 the deadbolt via mqtt. 
+
 VERSION NOTES:
--As of writing this, it is functioning flawlessly,
+
+1. As of writing this, it is functioning flawlessly,
 and I'm just waiting on my breakout pins to make
 this a permanent and not-super-jenk operation.
--Right now to complete the wait button feature,
-you just hav to add the door sensor to the correct
-pin, and the other to the ground, and it should
-function just fine.
--Good comments need to be added as always.
+
+2. Good comments need to be added as always.
+
 //SIGNED//
 JACK W. O'REILLY
-26 Feb 2016*/
+24 Mar 2016*/
 
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>  //mqtt client library
