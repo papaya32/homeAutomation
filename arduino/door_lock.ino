@@ -7,15 +7,11 @@ is supposed to be open, to prevent people from
 ripping off the controller and unlocking the door.
 There will also be controls in openHAB to control
 the deadbolt via mqtt. 
-
 VERSION NOTES:
-
 1. As of writing this, it is functioning flawlessly,
 and I'm just waiting on my breakout pins to make
 this a permanent and not-super-jenk operation.
-
 2. Good comments need to be added as always.
-
 //SIGNED//
 JACK W. O'REILLY
 24 Mar 2016*/
@@ -33,7 +29,7 @@ int mqtt_port = 1884;
 const char* mqtt_user = "lock1";
 const char* mqtt_pass = "24518000lock1";
 
-const char* versionNum = "1.31";
+const char* versionNum = "1.32";
 
 const char* door_com = "osh/liv/door/com";
 const char* test_com = "osh/all/test/com";
@@ -185,7 +181,7 @@ void callback(char* topic, byte* payload, unsigned int length)
     {
       client.publish(door_stat, "ON");
     }
-    if (!lockState)
+    else if (!lockState)
     {
       client.publish(door_stat, "OFF");
     }
