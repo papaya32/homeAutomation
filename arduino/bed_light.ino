@@ -1,12 +1,13 @@
 /*This code is designed for a single light and two
 buttons for control. The first button will toggle
 the light while the second will control nightMode.
-By default, the nightMode turns off the light here
-and issues a command, which so far only affects the
-desk lights.
+By default, the nightMode turns on the light here
+and issues a command, which so far turns the wall
+light off, and will turn some specified desk lights
+on.
 
-Additionally, there is a status led, which likely
-will be on both the buttons. This is dimmed using
+Additionally, there is a status led, which is on
+each of the buttons. This is dimmed using
 the dimmer function when mqtt is disconnected,
 blinks when wifi is disconnected, and toggles when
 the light is on or off (opposite of light).
@@ -14,13 +15,13 @@ the light is on or off (opposite of light).
 When nightMode is on and the nightMode button is
 pressed again, it publishes to the allOff topic,
 which effectively shuts off all the lights in the
-bedroom.
+bedroom, including the bed light.
 
-Compiles and deployment will be tested shortly.
+Tested and working well now.
 
 //SIGNED//
 JACK W. O'REILLY
-23 Mar 2016*/
+24 Mar 2016*/
 
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>
@@ -44,6 +45,9 @@ const char* test_stat = "osh/all/test/stat";  //place to publish replies to test
 const char* openhab_reconnect = "osh/bed/bed1/reconnect";
 const char* openhab_test = "osh/bed/bed1/openhab";
 const char* allOff = "osh/bed/all/allOff";
+const char* version_stat = "osh/bed/bed1/version";
+
+const char* versionNum = "1.20";
 
 bool nightStat;  //status of nightmode
 bool currentStateBed = LOW;  //current state of bed button
@@ -76,7 +80,8 @@ void setup() {
   pinMode(togglePin, INPUT);
   pinMode(ledPin, OUTPUT);
   Serial.begin(115200);
-  Serial.println("OSH Bed Bed Light Pap Version 0.8");  //for my reference
+  Serial.print("OSH Bed Bed Light Pap Version: ");  //for my reference
+  Serial.println(versionNum);
   setup_wifi();  //calls for setting up wifi
   client.setServer(mqtt_server, mqtt_port);  //initializes connection to mqtt broker, port in used here
   client.setCallback(callback);  //sets callback function
@@ -135,6 +140,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
   else if (((char)payload[0] == '1') && !strcmp(topic, test_com))  //if test topic was called
   {
     client.publish(test_stat, "OSH Bed Bed Light is Online!");  //publish esp status
+  client.publish(version_stat, versionNum);
   client.publish(openhab_test, "ON");
   }
   else if (((char)payload[0] == '1') && !strcmp(topic, night_com))  //if night mode is turned on
@@ -190,7 +196,8 @@ void reconnect()
     client.subscribe(openhab_start);
     client.loop();
     
-    client.publish(openhab_reconnect, "ON");    
+    client.publish(openhab_reconnect, "ON");
+    client.publish(version_stat, versionNum); 
     } else {
       Serial.print("failed, rc=");
       Serial.print(client.state());
