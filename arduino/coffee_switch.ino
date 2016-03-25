@@ -22,7 +22,7 @@ has proven the necessity of this.
 
 //SIGNED//
 JACK W. O'REILLY
-24 Mar 2016*/
+25 Mar 2016*/
 
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>  //mqtt client library
@@ -48,7 +48,7 @@ const char* openhab_reconnect = "osh/kit/coffee/reconnect";  //to publish to ope
 const char* allPub = "osh/all/stat";
 const char* version_stat = "osh/kit/coffee/version";
 
-const char* versionNum = "1.10";
+const char* versionNum = "1.11";
 
 bool coffeeState = LOW;  //variable for testing if coffee maker on or off
 bool prepStat = LOW;  //state of prep (HIGH if ready to be turned on); only applies to commands over mqtt
@@ -235,6 +235,7 @@ void coffeeSwitch()
   bool tempCoff = coffeeState;
   coffeeState = !tempCoff;
   analogWrite(ledPin, 0);  //turn on the indicator led
+  prepStat = LOW;
 }
 
 void pushTest()  //function to test for button press (for prepping coffee maker)
