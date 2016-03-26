@@ -29,7 +29,7 @@ int mqtt_port = 1884;
 const char* mqtt_user = "lock1";
 const char* mqtt_pass = "24518000lock1";
 
-const char* versionNum = "1.32";
+const char* versionNum = "1.33";
 
 const char* door_com = "osh/liv/door/com";
 const char* test_com = "osh/all/test/com";
@@ -235,7 +235,7 @@ void loop()
   client.loop();
   buttonPress();
   yield();
-  /*if ((millis() - loopTime) >= 300000)
+  if ((millis() - loopTime) >= 300000)
   {
     pinMode(lockLed, OUTPUT);
     pinMode(unlockLed, OUTPUT);
@@ -247,7 +247,7 @@ void loop()
     pinMode(doorBell, INPUT_PULLUP);
     loopTime = millis();
     yield();
-  }*/
+  }
 }
 
 void lockDoor(int lockMode)  //door lock function
@@ -315,6 +315,7 @@ void buttonPress()  //function that
   {
     int currentButton = atoi(buttonArray[i]);
     currentStateButton = digitalRead(currentButton);  //current state is reading the state of the button
+    client.loop();
     if (!currentStateButton)  //if the button is currently being pressed...
     {
       client.loop();
