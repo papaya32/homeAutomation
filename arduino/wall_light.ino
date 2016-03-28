@@ -31,7 +31,7 @@ int mqtt_port = 1884;
 const char* mqtt_user = "wall1";
 const char* mqtt_pass = "24518000wall1";
 
-const char* versionNum = "1.50";
+const char* versionNum = "1.53";
 
 const char* wall1_com = "osh/bed/wall1/com";  //command mqtt topic
 const char* test_com = "osh/all/test/com";  //command mqtt for live testing
@@ -55,6 +55,7 @@ bool lastStateButtonAll = HIGH;  //last state of temp all on/off "toggle" button
 
 bool lightStat = LOW;
 bool lockStat = LOW;  //low is unlocked; high locked
+bool tempLightStat = LOW;
 
 int relayPin = 16;  //light relay pin
 int ledPin = 2;  //led PIN (used for indicating connecting to wifi and mqtt broker)
@@ -226,7 +227,7 @@ void lightSwitch(int modes)
   if (modes)
   {
     digitalWrite(relayPin, LOW);
-  lightStat = LOW;
+  lightStat = HIGH;
   analogWrite(ledPin, 0);
   client.publish(wall1_stat, "ON");
   Serial.println("Light On");
@@ -234,7 +235,7 @@ void lightSwitch(int modes)
   else
   {
     digitalWrite(relayPin, HIGH);
-  lightStat = HIGH;
+  lightStat = LOW;
   analogWrite(ledPin, 1023);
   client.publish(wall1_stat, "OFF");
   Serial.println("Light Off");
@@ -271,55 +272,49 @@ void buttonPress()  //function that
       switch (currentButton)  //switch statement where the argument is the pin number that is currently being pushed
       {
         case buttonWall:  //if it's the button to control the ceiling light
+        lastStateButtonAll = HIGH;
         if ((millis() - lastTime) < maxTime)
         {
           break;
         }        
         lastTime = millis();
-      lastStateButtonAll = HIGH;
-      Serial.print("TEST");
       client.publish(temp_openhab, "ON");
           if (lightStat)  //if the last state was HIGH
           {
             lightSwitch(0);  //turn the light off
             delay(20);
-            lightStat = LOW;  //update current state of ceiling light
-          }
+         }
           else  //otherwise (last state was off)
           {
             lightSwitch(1);
             delay(20);
-            lightStat = HIGH;  //update current state of light to on
           }
           break;
         case buttonAll:  //if it's the temporary on/off button press
-        Serial.print("TESTER");
           if (lastStateButtonAll)  //if the last state was HIGH (meaning we're now turning the lights off)
           {
             client.publish(temp_com, "0");  //publish to all esp's to turn off
             client.publish(temp_openhab, "ON");
-            bool tempLightStat = lightStat;
+            tempLightStat = lightStat;
             lightSwitch(0);
       yield();
             lastStateButtonAll = LOW;  //update last all state to LOW
-            lightStat = tempLightStat;
           }
           else
           {
             client.publish(temp_com, "1");
             client.publish(temp_openhab, "OFF");
-            if (!lightStat)  //if the last state of the ceiling light was off...
+            if (tempLightStat)  //if the last state of the ceiling light was off...
             {
               lightSwitch(1);
             }
             yield();
-            lastStateButtonAll = HIGH;
+            lastStat jeButtonAll = HIGH;
           }
       while (!digitalRead(currentButton))
       {
         delay(5);
       yield();
-      Serial.print("LOOP");
       }
       unsigned long int timeRelease = millis();
       bool test = LOW;
@@ -332,7 +327,6 @@ void buttonPress()  //function that
         test = HIGH;
         client.publish(allOff, "ON");
         lastStateButtonAll = HIGH;
-        Serial.println("SUCCESS");
       }
       }
       yield();
