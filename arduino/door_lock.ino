@@ -14,7 +14,7 @@ this a permanent and not-super-jenk operation.
 2. Good comments need to be added as always.
 //SIGNED//
 JACK W. O'REILLY
-24 Mar 2016*/
+4 Apr 2016*/
 
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>  //mqtt client library
@@ -29,7 +29,7 @@ int mqtt_port = 1884;
 const char* mqtt_user = "lock1";
 const char* mqtt_pass = "24518000lock1";
 
-const char* versionNum = "1.33";
+const char* versionNum = "1.40";
 
 const char* door_com = "osh/liv/door/com";
 const char* test_com = "osh/all/test/com";
@@ -51,8 +51,8 @@ int unlockLed = 5;
 int doorSensor = 15;
 
 #define buttonUnlock 12
-#define buttonLock 0
-#define buttonWait 13
+#define buttonLock 13
+#define buttonWait 0
 #define accessRelay 2
 #define doorBell 4
 
@@ -62,7 +62,7 @@ bool lastStateButton = LOW;
 #define numButtons 5
 char* buttonArray[numButtons] = {"12", "4", "13", "2", "0"};
 
-int lockDegree = 120;
+int lockDegree = 127;
 int counter = 0;
 int waitVar = 1;
 unsigned long loopTime = 0;
@@ -228,6 +228,7 @@ void reconnect()  //this function is called repeatedly until mqtt is connected t
 
 void loop()
 {
+  unsigned long int tester = millis();
   if (!client.connected())
   {
     reconnect();
@@ -247,7 +248,9 @@ void loop()
     pinMode(doorBell, INPUT_PULLUP);
     loopTime = millis();
     yield();
+    client.loop();
   }
+  if ((millis() - tester) >= 2) {Serial.println("DICKS"); Serial.println(millis() - tester);}
 }
 
 void lockDoor(int lockMode)  //door lock function
@@ -277,7 +280,8 @@ void lockDoor(int lockMode)  //door lock function
     delay(1250);
     lockServo.detach();
     lockState = LOW;
-  }  
+  }
+  client.loop();
 }
 
 void dimmer(int tester)  //dimmer function (for recognizing disconnect when in wall)
@@ -318,7 +322,7 @@ void buttonPress()  //function that
     client.loop();
     if (!currentStateButton)  //if the button is currently being pressed...
     {
-      client.loop();
+      Serial.println(millis());
       yield();
       switch (currentButton)  //switch statement where the argument is the pin number that is currently being pushed
       {
@@ -333,27 +337,33 @@ void buttonPress()  //function that
           lockDoor(0);
           break;
         case accessRelay:
-          /*Serial.println("accessRelay");
-          counter = 0;
+          Serial.println("accessRelay");
+          Serial.println(millis());
           Serial.println(digitalRead(accessRelay));
-          while (digitalRead(accessRelay))
+          delay(5);
+          counter = 5;
+          while (!digitalRead(accessRelay))
           {
+            unsigned long int tester = millis();
             delay(5);
             yield();
-            counter += 5;
+            client.loop();
+            counter += (millis() - tester);
           }
           Serial.print("Counter: ");
           Serial.println(counter);
-          if ((counter >= (referenceTime - .12 * referenceTime)) && (counter <= (referenceTime + .12 * referenceTime)))
+          if ((counter >= 240) && (counter <= 260))
           {
             lockDoor(0);
           }
           else
           {
             delay(5000);
-          }*/
-          lockDoor(0);
+            client.loop();
+            yield();
+          }
           yield();
+          client.loop();
           break;
         case buttonWait:
           Serial.println("buttonWait");
@@ -373,6 +383,7 @@ void buttonPress()  //function that
           while (!digitalRead(buttonWait))
           {
             yield();
+            client.loop();
           }
           delay(30);
           dimmer(0);
@@ -386,6 +397,7 @@ void buttonPress()  //function that
       while (!digitalRead(currentButton))  //while the current button is still being pressed...
       {
         yield();  //delay so the esp doesn't blow up/crash :)
+        client.loop();
       }
     }
   yield();
