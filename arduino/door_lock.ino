@@ -29,7 +29,7 @@ int mqtt_port = 1884;
 const char* mqtt_user = "lock1";
 const char* mqtt_pass = "24518000lock1";
 
-const char* versionNum = "1.33";
+const char* versionNum = "1.41";
 
 const char* door_com = "osh/liv/door/com";
 const char* test_com = "osh/all/test/com";
@@ -252,10 +252,12 @@ void loop()
 
 void lockDoor(int lockMode)  //door lock function
 {
+  client.loop();
   if (lockMode)  //if parameter is a 1
   {
     client.publish(door_stat, "ON");
     client.publish(allPub, "Living Room Door is Locked");
+    client.loop();
     analogWrite(unlockLed, 0);
     analogWrite(lockLed, 1023);
     lockServo.attach(servoPin);
@@ -269,6 +271,7 @@ void lockDoor(int lockMode)  //door lock function
   {
     client.publish(door_stat, "OFF");
     client.publish(allPub, "Living Room Door is Unlocked");
+    client.loop();
     analogWrite(unlockLed, 1023);
     analogWrite(lockLed, 0);
     lockServo.attach(servoPin);
