@@ -29,7 +29,7 @@ int mqtt_port = 1884;
 const char* mqtt_user = "lock1";
 const char* mqtt_pass = "24518000lock1";
 
-const char* versionNum = "1.41";
+const char* versionNum = "1.42";
 
 const char* door_com = "osh/liv/door/com";
 const char* test_com = "osh/all/test/com";
@@ -44,6 +44,7 @@ const char* doorbell_stat = "osh/liv/door/doorbell";
 const char* version_stat = "osh/liv/door/version";
 
 bool lockState = HIGH;
+bool lockTester = HIGH;
 
 int servoPin = 14;
 int lockLed = 16;
@@ -248,16 +249,20 @@ void loop()
     loopTime = millis();
     yield();
   }
+  if (!lockTester)
+  {
+    delay(30);
+    client.loop();
+    lockTester = HIGH;
+  }
 }
 
 void lockDoor(int lockMode)  //door lock function
 {
-  client.loop();
   if (lockMode)  //if parameter is a 1
   {
     client.publish(door_stat, "ON");
     client.publish(allPub, "Living Room Door is Locked");
-    client.loop();
     analogWrite(unlockLed, 0);
     analogWrite(lockLed, 1023);
     lockServo.attach(servoPin);
@@ -266,12 +271,12 @@ void lockDoor(int lockMode)  //door lock function
     delay(1250);
     lockServo.detach();
     lockState = HIGH;
+    lockTester = LOW;
   }
   else if (!lockMode)  //if 0 (unlock)
   {
     client.publish(door_stat, "OFF");
     client.publish(allPub, "Living Room Door is Unlocked");
-    client.loop();
     analogWrite(unlockLed, 1023);
     analogWrite(lockLed, 0);
     lockServo.attach(servoPin);
@@ -280,6 +285,7 @@ void lockDoor(int lockMode)  //door lock function
     delay(1250);
     lockServo.detach();
     lockState = LOW;
+    lockTester = LOW;
   }  
 }
 
@@ -318,10 +324,8 @@ void buttonPress()  //function that
   {
     int currentButton = atoi(buttonArray[i]);
     currentStateButton = digitalRead(currentButton);  //current state is reading the state of the button
-    client.loop();
     if (!currentStateButton)  //if the button is currently being pressed...
     {
-      client.loop();
       yield();
       switch (currentButton)  //switch statement where the argument is the pin number that is currently being pushed
       {
