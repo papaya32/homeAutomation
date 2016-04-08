@@ -29,7 +29,7 @@ int mqtt_port = 1884;
 const char* mqtt_user = "lock1";
 const char* mqtt_pass = "24518000lock1";
 
-const char* versionNum = "1.40";
+const char* versionNum = "1.44";
 
 const char* door_com = "osh/liv/door/com";
 const char* test_com = "osh/all/test/com";
@@ -44,6 +44,7 @@ const char* doorbell_stat = "osh/liv/door/doorbell";
 const char* version_stat = "osh/liv/door/version";
 
 bool lockState = HIGH;
+bool lockTester = LOW;
 
 int servoPin = 14;
 int lockLed = 16;
@@ -251,6 +252,12 @@ void loop()
     client.loop();
   }
   if ((millis() - tester) >= 2) {Serial.println("DICKS"); Serial.println(millis() - tester);}
+  if (lockTester)
+  {
+    delay(40);
+    client.loop();
+    lockTester = LOW;
+  }
 }
 
 void lockDoor(int lockMode)  //door lock function
@@ -267,6 +274,7 @@ void lockDoor(int lockMode)  //door lock function
     delay(1250);
     lockServo.detach();
     lockState = HIGH;
+    lockTester = HIGH;
   }
   else if (!lockMode)  //if 0 (unlock)
   {
@@ -280,8 +288,8 @@ void lockDoor(int lockMode)  //door lock function
     delay(1250);
     lockServo.detach();
     lockState = LOW;
+    lockTester = HIGH;
   }
-  client.loop();
 }
 
 void dimmer(int tester)  //dimmer function (for recognizing disconnect when in wall)
@@ -319,7 +327,6 @@ void buttonPress()  //function that
   {
     int currentButton = atoi(buttonArray[i]);
     currentStateButton = digitalRead(currentButton);  //current state is reading the state of the button
-    client.loop();
     if (!currentStateButton)  //if the button is currently being pressed...
     {
       Serial.println(millis());
@@ -347,7 +354,6 @@ void buttonPress()  //function that
             unsigned long int tester = millis();
             delay(5);
             yield();
-            client.loop();
             counter += (millis() - tester);
           }
           Serial.print("Counter: ");
@@ -359,11 +365,9 @@ void buttonPress()  //function that
           else
           {
             delay(5000);
-            client.loop();
             yield();
           }
           yield();
-          client.loop();
           break;
         case buttonWait:
           Serial.println("buttonWait");
@@ -383,7 +387,6 @@ void buttonPress()  //function that
           while (!digitalRead(buttonWait))
           {
             yield();
-            client.loop();
           }
           delay(30);
           dimmer(0);
@@ -397,7 +400,6 @@ void buttonPress()  //function that
       while (!digitalRead(currentButton))  //while the current button is still being pressed...
       {
         yield();  //delay so the esp doesn't blow up/crash :)
-        client.loop();
       }
     }
   yield();
