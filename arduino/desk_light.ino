@@ -1,218 +1,195 @@
-/*Button function calls and function itself need to be uncommented
-   and tested fully. Additionally, the nightMode must be tested.
-   This should include 4 physical switches all wired such that those
-   that are on allow the nightModePin signal through to ALL relays.
-   After that, the esp should be ready to deploy :D
-   
-   //SIGNED//
-   JACK W. O'REILLY
-   14 FEB 2016
-*/
+/* This is hopefully the last update that
+fixes night mode problems and some simple
+wrong topic issues. Looking good.
+
+//SIGNED//
+JACK W. O'REILLY
+24 Apr 2016*/
 
 #include <ESP8266WiFi.h>
-#include <PubSubClient.h>  //mqtt client library
+#include <PubSubClient.h>
 
-// Update these with values suitable for your network.
+const char* ssid = "oreilly";
+const char* password = "9232616cc8";
+const char* mqtt_server = "mqtt.oreillyj.com";
+int mqtt_port = 1883;
+const char* mqtt_user = "desk";
+const char* mqtt_pass = "24518000desk";
 
-const char* ssid = "oreilly";  //wifi ssid
-const char* password = "9232616cc8";  //wifi password
-const char* mqtt_server = "192.168.1.108";  //server IP (port later defined)
+const char* versionNum = "1.03";
 
-const char* desk1_com = "osh/bed/desk1/com";  //command mqtt topic
+const char* desk1_com = "osh/bed/desk1/com";
 const char* desk2_com = "osh/bed/desk2/com";
 const char* desk3_com = "osh/bed/desk3/com";
 const char* desk4_com = "osh/bed/desk4/com";
-const char* test_com = "osh/all/test/com";  //command mqtt for live testing
-const char* nightMode = "osh/bed/nightMode/com";  //command mqtt for night mode
+const char* test_com = "osh/all/test/com";
 const char* temp_com = "osh/bed/all/temp";
+const char* start_com = "osh/all/start";
+const char* allOff = "osh/bed/desk/allOff";
 
-const char* desk1_stat = "osh/bed/desk1/stat";  //status mqtt topic
+const char* desk1_stat = "osh/bed/desk1/stat";
 const char* desk2_stat = "osh/bed/desk2/stat";
 const char* desk3_stat = "osh/bed/desk3/stat";
 const char* desk4_stat = "osh/bed/desk4/stat";
-const char* nightMode_stat = "osh/bed/nightMode/stat";
-const char* test_stat = "osh/all/test/stat";  //status mqtt for live testing
-const char* allPub = "osh/all/stat";  //topic for all esp's to publish their stats
+const char* allPub = "osh/all/stat";
+const char* test_stat = "osh/all/test/stat";
+const char* openhab_test = "osh/bed/desk/openhab";
+const char* version_stat = "osh/bed/desk/version";
 
-int desk1Pin = 14;  //initializes relay pins
-int desk2Pin = 16;
-int desk3Pin = 12;
+bool desk1Stat = LOW;
+bool desk2Stat = LOW;
+bool desk3Stat = LOW;
+bool desk4Stat = LOW;
+
+bool desk1Temp = LOW;
+bool desk2Temp = LOW;
+bool desk3Temp = LOW;
+bool desk4Temp = LOW;
+
+int desk1Pin = 2;
+int desk2Pin = 4;
+int desk3Pin = 5;
 int desk4Pin = 13;
-int nightModePin = 5;
 
-int desk1Button = 4;
-int desk2Button = 15;
-int desk3Button = 2;
-int desk4Button = 0;
+void lightSwitch(int, bool);
+void publishStats();
+void tempFunc(int);
+void setup_wifi();
+void callback(char*, byte*, unsigned int);
 
-int roundOne = 1;
-
-void pushTest(int, int, bool*, const char*);
-
-bool currentStateButton = LOW;
-bool lastStateButton = LOW;
-
-bool desk1Stat = HIGH;
-bool desk2Stat = HIGH;
-bool desk3Stat = HIGH;
-bool desk4Stat = HIGH;
-bool nightModeStat = HIGH;
-
-WiFiClient espClient;  //part of base code for library use
-PubSubClient client(espClient);  //specifies esp as the AP connector
+WiFiClient espClient;
+PubSubClient client(espClient);
 long lastMsg = 0;
-char msg[50];  //initializes char array for mqtt message
-int value = 0;  //utility variable
+char msg[50];
+int value = 0;
 
-void setup_wifi();  //initializes wifi setup function
-void callback(char*, byte*, unsigned int);  //callback function for when subscribed topic gets a message
-
-void setup() {
+void setup()
+{
   pinMode(desk1Pin, OUTPUT);
   pinMode(desk2Pin, OUTPUT);
   pinMode(desk3Pin, OUTPUT);
   pinMode(desk4Pin, OUTPUT);
-  pinMode(nightModePin, OUTPUT);
-  digitalWrite(desk1Pin, desk1Stat);
-  digitalWrite(desk2Pin, desk2Stat);
-  digitalWrite(desk3Pin, desk3Stat);
-  digitalWrite(desk4Pin, desk4Stat);
-  digitalWrite(nightModePin, nightModeStat);
-  Serial.begin(115200);  //initializes baud rate for serial monitor
-  Serial.println("Desk Light Pap Version 0.9");  //for my reference
-  setup_wifi();  //starts up wifi (user defined function)
-  client.setServer(mqtt_server, 1883);  //connects to mqtt server (second parameter is port)
-  client.setCallback(callback);  //sets callback function (as callback function is user defined)
+
+  lightSwitch(1, LOW);
+  lightSwitch(2, LOW);
+  lightSwitch(3, LOW);
+  lightSwitch(4, LOW);
+  
+  Serial.begin(115200);
+  Serial.println();
+  Serial.print("Desk Light Pap Version: ");
+  Serial.println(versionNum);
+  setup_wifi();
+  client.setServer(mqtt_server, mqtt_port);
+  client.setCallback(callback);
 }
 
-void setup_wifi() {
+void setup_wifi()
+{
   delay(10);
-  // We start by connecting to a WiFi network
   Serial.println();
-  Serial.print("Connecting to ");
+  Serial.print("Connecting to: ");
   Serial.println(ssid);
-
-  WiFi.begin(ssid, password);  //starts wifi connection
-
-  while (WiFi.status() != WL_CONNECTED) {  //while wifi not connected...
-    delay(200);
-  /*pushTest(desk1Button, desk1Pin, &desk1Stat, desk1_stat);
-    pushTest(desk2Button, desk2Pin, &desk2Stat, desk2_stat);
-    pushTest(desk3Button, desk3Pin, &desk3Stat, desk3_stat);*/
-  pushTest(desk4Button, desk4Pin, &desk4Stat, desk4_stat);
+  
+  WiFi.begin(ssid, password);
+  
+  while (WiFi.status() != WL_CONNECTED)
+  {
     Serial.print(".");
-  }
-
-  Serial.println("");
-  Serial.println("WiFi connected");
-  Serial.println("IP address: ");
-  Serial.println(WiFi.localIP());  //prints local ip address
-}
-
-void callback(char* topic, byte* payload, unsigned int length) {
-  Serial.print("Message arrived [");
-  Serial.print(topic);
-  Serial.print("] ");
-  for (int i = 0; i < length; i++) {  //loop that prints out each character in char array that is message
-    Serial.print((char)payload[i]);  //prints out array element by element
+    delay(500);
   }
   Serial.println();
+  Serial.println("WiFi Connected");
+  Serial.print("IP address: ");
+  Serial.println(WiFi.localIP());
+}
 
-  //Note for the next few lines, strcmp() returns zero if the two CHAR ARRAYS equal each other, contrary to logical thought
-  if (((char)payload[0] == '1') && !strcmp(topic, desk1_com))  //if message is one and topics match...
+void callback(char* topic, byte* payload, unsigned int length)
+{
+  if (!strcmp(topic, desk1_com))
   {
-    digitalWrite(desk1Pin, LOW);  //turn the lights on
-    desk1Stat = LOW;
-    client.publish(desk1_stat, "ON");
+    if ((char)payload[0] == '1')
+    {
+      lightSwitch(1, HIGH);
+    }
+    else
+    {
+      lightSwitch(1, LOW);
+    }
   }
-  else if (((char)payload[0] == '0') && !strcmp(topic, desk1_com))
+  if (!strcmp(topic, desk2_com))
   {
-    digitalWrite(desk1Pin, HIGH);  //turn the lights off
-    desk1Stat = HIGH;
-    client.publish(desk1_stat, "OFF");
+    if ((char)payload[0] == '1')
+    {
+      lightSwitch(2, HIGH);
+    }
+    else
+    {
+      lightSwitch(2, LOW);
+    }
   }
-  else if (((char)payload[0] == '1') && !strcmp(topic, desk2_com))  //if message is one and topics match...
+  if (!strcmp(topic, desk3_com))
   {
-    digitalWrite(desk2Pin, LOW);  //turn the lights on
-    desk2Stat = LOW;
-    client.publish(desk2_stat, "ON");
+    if ((char)payload[0] == '1')
+    {
+      lightSwitch(3, HIGH);
+    }
+    else
+    {
+      lightSwitch(3, LOW);
+    }
   }
-  else if (((char)payload[0] == '0') && !strcmp(topic, desk2_com))
+  if (!strcmp(topic, desk4_com))
   {
-    digitalWrite(desk2Pin, HIGH);  //turn the lights off
-    desk2Stat = HIGH;
-    client.publish(desk2_stat, "OFF");
+    if ((char)payload[0] == '1')
+    {
+      lightSwitch(4, HIGH);
+    }
+    else
+    {
+      lightSwitch(4, LOW);
+    }
   }
-  else if (((char)payload[0] == '1') && !strcmp(topic, desk3_com))  //if message is one and topics match...
+  if (((char)payload[0] == '1') && !strcmp(topic, test_com))
   {
-    digitalWrite(desk3Pin, LOW);  //turn the lights on
-    desk3Stat = LOW;
-    client.publish(desk3_stat, "ON");
+    client.publish(test_stat, "OSH Desk Lights are Online!");
+    client.publish(openhab_test, "ON");
+    client.publish(version_stat, versionNum);
   }
-  else if (((char)payload[0] == '0') && !strcmp(topic, desk3_com))
+  if (((char)payload[0] == '1') && !strcmp(topic, start_com))
   {
-    digitalWrite(desk3Pin, HIGH);  //turn the lights off
-    desk3Stat = HIGH;
-    client.publish(desk3_stat, "OFF");
+    publishStats();
   }
-  else if (((char)payload[0] == '1') && !strcmp(topic, desk4_com))  //if message is one and topics match...
+  if (!strcmp(topic, temp_com))
   {
-    digitalWrite(desk4Pin, LOW);  //turn the lights on
-    desk4Stat = LOW;
-    client.publish(desk4_stat, "ON");
+    if ((char)payload[0] == '0')
+    {
+      tempFunc(0);
+    }
+    else
+    {
+      tempFunc(1);
+    }
   }
-  else if (((char)payload[0] == '0') && !strcmp(topic, desk4_com))
+  if (((char)payload[0] == '1') && !strcmp(topic, allOff))
   {
-    digitalWrite(desk4Pin, HIGH);  //turn the lights off
-    desk4Stat = HIGH;
-    client.publish(desk4_stat, "OFF");
-  }
-  else if (((char)payload[0] == '1') && !strcmp(topic, test_com))  //condition for live testing
-  {
-    client.publish(test_stat, "OSH Bed Desk Lights are Online!");  //publishes that this esp is live
-  }
-  else if (((char)payload[0] == '1') && !strcmp(topic, nightMode))
-  {
-    digitalWrite(desk1Pin, HIGH);
-    digitalWrite(desk2Pin, HIGH);
-    digitalWrite(desk3Pin, HIGH);
-    digitalWrite(desk4Pin, HIGH);
-    digitalWrite(nightModePin, LOW);
-    desk1Stat = HIGH;
-    desk2Stat = HIGH;
-    desk3Stat = HIGH;
-    desk4Stat = HIGH;
-    nightModeStat = LOW;
-    client.publish(allPub, "OSH Bed Desk Night Mode is ON");
-  }
-  else if (((char)payload[0] == '0') && !strcmp(topic, temp_com))
-  {
-    digitalWrite(desk1Pin, HIGH);
-    digitalWrite(desk2Pin, HIGH);
-    digitalWrite(desk3Pin, HIGH);
-    digitalWrite(desk4Pin, HIGH);
-    digitalWrite(nightModePin, HIGH);
-  }
-  else if (((char)payload[0] == '1') && !strcmp(topic, temp_com))
-  {
-    digitalWrite(desk1Pin, desk1Stat);
-    digitalWrite(desk2Pin, desk2Stat);
-    digitalWrite(desk3Pin, desk3Stat);
-    digitalWrite(desk4Pin, desk4Stat);
-    digitalWrite(nightModePin, nightModeStat);
+    lightSwitch(1, LOW);
+    lightSwitch(2, LOW);
+    lightSwitch(3, LOW);
+    lightSwitch(4, LOW);
   }
 }
 
-void reconnect() {  //this function is called repeatedly until mqtt is connected to broker
-  while (!client.connected())  //while not connected...
+void reconnect()
+{
+  while(!client.connected())
   {
-    Serial.print("Attempting MQTT connection...");
-    // Attempt to connect
-    client.connect("ESP8266Client");  //connect funtion, must include ESP8266Client
-    if (client.connected())  //if connected...
+    Serial.print("Attempting MQTT Connection...");
+    client.connect("ESP8266Desk", mqtt_user, mqtt_pass);
+    if (client.connected())
     {
-      Serial.println("connected");
-      client.subscribe(desk1_com);  //once connected, subscribe
+      Serial.println("Connected");
+      client.subscribe(desk1_com);
       client.loop();
       client.subscribe(desk2_com);
       client.loop();
@@ -222,76 +199,159 @@ void reconnect() {  //this function is called repeatedly until mqtt is connected
       client.loop();
       client.subscribe(test_com);
       client.loop();
-      client.subscribe(nightMode);
-      client.loop();
       client.subscribe(temp_com);
       client.loop();
+      client.subscribe(start_com);
+      client.loop();
+      client.subscribe(allOff);
+      client.loop();
+      
+      client.publish(allPub, "Desk Light Controller just Reconnected");
+      client.publish(openhab_test, "ON");
     }
     else
     {
-      Serial.print("failed, rc=");  //if failed, prints out the reason (look up rc codes in api header file)
-      Serial.print(client.state());
-      Serial.println(" try again in 5 seconds");
-      int i;
-      for (i=0;i<1000;i++)
+      Serial.print("failed, rc=");
+      Serial.println(client.state());
+      Serial.println("Try again in 5 Seconds");
+      if (WiFi.status() != WL_CONNECTED)
       {
-      /*pushTest(desk1Button, desk1Pin, &desk1Stat, desk1_stat);
-        pushTest(desk2Button, desk2Pin, &desk2Stat, desk2_stat);
-        pushTest(desk3Button, desk3Pin, &desk3Stat, desk3_stat);*/
-        pushTest(desk4Button, desk4Pin, &desk4Stat, desk4_stat);
-        delay(5);
+        setup_wifi();
       }
+      delay(5000);
     }
   }
 }
-void loop() {
 
-  if (!client.connected())  //if not connected to mqtt...
+void loop()
+{
+  if (!client.connected())
   {
-    reconnect();  //call reconnect function
+    reconnect();
   }
-  client.loop();  //keeps searching subscriptions, absolutely required
-  /*pushTest(desk1Button, desk1Pin, &desk1Stat, desk1_stat);
-    pushTest(desk2Button, desk2Pin, &desk2Stat, desk2_stat);
-    pushTest(desk3Button, desk3Pin, &desk3Stat, desk3_stat);*/
-  pushTest(desk4Button, desk4Pin, &desk4Stat, desk4_stat);
+  client.loop();
+  yield();
+}
 
-  if (roundOne)
+void lightSwitch(int light, bool state)
+{
+  if (light == 1)
+  {
+    desk1Stat = state;
+    digitalWrite(desk1Pin, !state);
+    Serial.print("Desk 1 State: ");
+    Serial.println(state);
+    if (state)
+    {
+      client.publish(desk1_stat, "ON");
+    }
+    else
+    {
+      client.publish(desk1_stat, "OFF");
+    }
+  }
+  else if (light == 2)
+  {
+    desk2Stat = state;
+    digitalWrite(desk2Pin, !state);
+    Serial.print("Desk 2 State: ");
+    Serial.println(state);
+    if (state)
+    {
+      client.publish(desk2_stat, "ON");
+    }
+    else
+    {
+      client.publish(desk2_stat, "OFF");
+    }
+  }
+  else if (light == 3)
+  {
+    desk3Stat = state;
+    digitalWrite(desk3Pin, !state);
+    Serial.print("Desk 3 State: ");
+    Serial.println(state);
+    if (state)
+    {
+      client.publish(desk3_stat, "ON");
+    }
+    else
+    {
+      client.publish(desk3_stat, "OFF");
+    }
+  }
+  else if (light == 4)
+  {
+    desk4Stat = state;
+    digitalWrite(desk4Pin, !state);
+    Serial.print("Desk 4 State: ");
+    Serial.println(state);
+    if (state)
+    {
+      client.publish(desk4_stat, "ON");
+    }
+    else
+    {
+      client.publish(desk4_stat, "OFF");
+    }
+  }
+}
+
+void tempFunc(int state)
+{
+  if (!state)  //turning lights off
+  {
+    desk1Temp = desk1Stat;
+    desk2Temp = desk2Stat;
+    desk3Temp = desk3Stat;
+    desk4Temp = desk4Stat;
+    
+    lightSwitch(1, LOW);
+    lightSwitch(2, LOW);
+    lightSwitch(3, LOW);
+    lightSwitch(4, LOW);
+  }
+  else  //lights back on
+  {
+    lightSwitch(1, desk1Temp);
+    lightSwitch(2, desk2Temp);
+    lightSwitch(3, desk3Temp);
+    lightSwitch(4, desk4Temp);
+  }
+}
+
+void publishStats()
+{
+  if (desk1Stat)
+  {
+    client.publish(desk1_stat, "ON");
+  }
+  if (!desk1Stat)
   {
     client.publish(desk1_stat, "OFF");
+  }
+  if (desk2Stat)
+  {
+    client.publish(desk2_stat, "ON");
+  }
+  if (!desk2Stat)
+  {
     client.publish(desk2_stat, "OFF");
+  }
+  if (desk3Stat)
+  {
+    client.publish(desk3_stat, "ON");
+  }
+  if (!desk3Stat)
+  {
     client.publish(desk3_stat, "OFF");
+  }
+  if (desk4Stat)
+  {
+    client.publish(desk4_stat, "ON");
+  }
+  if (!desk4Stat)
+  {
     client.publish(desk4_stat, "OFF");
-    client.publish(nightMode_stat, "OFF");
-  }
-  roundOne = 0;
-}
-
-void pushTest(int buttonPin, int relayPin, bool *state, const char* deskStat)
-{
-  currentStateButton = digitalRead(buttonPin);  //current state is read from pin
-  if (currentStateButton == HIGH && lastStateButton == LOW) //if button is being pressed, and was previously off
-  {
-    digitalWrite(relayPin, LOW);
-    client.publish(deskStat, "ON");
-    *state = LOW;
-    delay(15);  //rudimentary debounce
-    lastStateButton = HIGH;  //set "previous" state
-    while (digitalRead(buttonPin) == HIGH)  //while button is being pressed
-    {
-      delay(5);  //keeps the esp from crashing :)
-    }
-  }
-  else if (currentStateButton == HIGH && lastStateButton == HIGH) //just toggled off
-  {
-    digitalWrite(relayPin, HIGH);
-    client.publish(deskStat, "OFF");
-    *state = HIGH;
-    delay(15);
-    lastStateButton = LOW;
-    while (digitalRead(buttonPin) == HIGH)  //while button is being pressed
-    {
-      delay(5);//yayy
-    }
   }
 }
