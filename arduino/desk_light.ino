@@ -1,8 +1,12 @@
-/* Desk Light Round ONE!!
+/* This is the semi-final code, deployed and
+functioning very smoothly (on the first try!!).
+Will make a few changes to the night mode code
+to try to centralize it to the openHAB server.
+
 
 //SIGNED//
 JACK W. O'REILLY
-23 Apr 2016*/
+24 Apr 2016*/
 
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>
@@ -14,7 +18,7 @@ int mqtt_port = 1883;
 const char* mqtt_user = "desk";
 const char* mqtt_pass = "24518000desk";
 
-const char* versionNum = "0.50";
+const char* versionNum = "1.00";
 
 const char* desk1_com = "osh/bed/desk1/com";
 const char* desk2_com = "osh/bed/desk2/com";
@@ -64,11 +68,16 @@ int value = 0;
 
 void setup()
 {
-  pinMode(desk1Pin, INPUT_PULLUP);
-  pinMode(desk2Pin, INPUT_PULLUP);
-  pinMode(desk3Pin, INPUT_PULLUP);
-  pinMode(desk4Pin, INPUT_PULLUP);
+  pinMode(desk1Pin, OUTPUT);
+  pinMode(desk2Pin, OUTPUT);
+  pinMode(desk3Pin, OUTPUT);
+  pinMode(desk4Pin, OUTPUT);
   pinMode(nightPin, OUTPUT);
+
+  lightSwitch(1, LOW);
+  lightSwitch(2, LOW);
+  lightSwitch(3, LOW);
+  lightSwitch(4, LOW);
   
   Serial.begin(115200);
   Serial.println();
@@ -186,7 +195,7 @@ void callback(char* topic, byte* payload, unsigned int length)
 
 void reconnect()
 {
-  while(client.connected())
+  while(!client.connected())
   {
     Serial.print("Attempting MQTT Connection...");
     client.connect("ESP8266Desk", mqtt_user, mqtt_pass);
@@ -224,6 +233,7 @@ void reconnect()
       {
         setup_wifi();
       }
+      delay(5000);
     }
   }
 }
@@ -331,7 +341,7 @@ void publishStats()
   {
     client.publish(desk1_stat, "ON");
   }
-  else if (!desk1Stat)
+  if (!desk1Stat)
   {
     client.publish(desk1_stat, "OFF");
   }
@@ -339,7 +349,7 @@ void publishStats()
   {
     client.publish(desk2_stat, "ON");
   }
-  else if (!desk2Stat)
+  if (!desk2Stat)
   {
     client.publish(desk2_stat, "OFF");
   }
@@ -347,7 +357,7 @@ void publishStats()
   {
     client.publish(desk3_stat, "ON");
   }
-  else if (!desk3Stat)
+  if (!desk3Stat)
   {
     client.publish(desk3_stat, "OFF");
   }
@@ -355,7 +365,7 @@ void publishStats()
   {
     client.publish(desk4_stat, "ON");
   }
-  else if (!desk4Stat)
+  if (!desk4Stat)
   {
     client.publish(desk4_stat, "OFF");
   }
