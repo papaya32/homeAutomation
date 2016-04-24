@@ -1,8 +1,6 @@
-/* This is the semi-final code, deployed and
-functioning very smoothly (on the first try!!).
-Will make a few changes to the night mode code
-to try to centralize it to the openHAB server.
-
+/* This is hopefully the last update that
+fixes night mode problems and some simple
+wrong topic issues. Looking good.
 
 //SIGNED//
 JACK W. O'REILLY
@@ -18,14 +16,13 @@ int mqtt_port = 1883;
 const char* mqtt_user = "desk";
 const char* mqtt_pass = "24518000desk";
 
-const char* versionNum = "1.00";
+const char* versionNum = "1.03";
 
 const char* desk1_com = "osh/bed/desk1/com";
 const char* desk2_com = "osh/bed/desk2/com";
 const char* desk3_com = "osh/bed/desk3/com";
 const char* desk4_com = "osh/bed/desk4/com";
 const char* test_com = "osh/all/test/com";
-const char* nightMode = "osh/bed/nightMode/com";
 const char* temp_com = "osh/bed/all/temp";
 const char* start_com = "osh/all/start";
 const char* allOff = "osh/bed/desk/allOff";
@@ -35,6 +32,7 @@ const char* desk2_stat = "osh/bed/desk2/stat";
 const char* desk3_stat = "osh/bed/desk3/stat";
 const char* desk4_stat = "osh/bed/desk4/stat";
 const char* allPub = "osh/all/stat";
+const char* test_stat = "osh/all/test/stat";
 const char* openhab_test = "osh/bed/desk/openhab";
 const char* version_stat = "osh/bed/desk/version";
 
@@ -52,7 +50,6 @@ int desk1Pin = 2;
 int desk2Pin = 4;
 int desk3Pin = 5;
 int desk4Pin = 13;
-int nightPin = 12;
 
 void lightSwitch(int, bool);
 void publishStats();
@@ -72,7 +69,6 @@ void setup()
   pinMode(desk2Pin, OUTPUT);
   pinMode(desk3Pin, OUTPUT);
   pinMode(desk4Pin, OUTPUT);
-  pinMode(nightPin, OUTPUT);
 
   lightSwitch(1, LOW);
   lightSwitch(2, LOW);
@@ -156,18 +152,9 @@ void callback(char* topic, byte* payload, unsigned int length)
   }
   if (((char)payload[0] == '1') && !strcmp(topic, test_com))
   {
-    client.publish(allPub, "OSH Desk Lights are Online!");
+    client.publish(test_stat, "OSH Desk Lights are Online!");
     client.publish(openhab_test, "ON");
     client.publish(version_stat, versionNum);
-  }
-  if (((char)payload[0] == '1') && !strcmp(topic, nightMode))
-  {
-    digitalWrite(desk1Pin, HIGH);
-    digitalWrite(desk2Pin, HIGH);
-    digitalWrite(desk3Pin, HIGH);
-    digitalWrite(desk4Pin, HIGH);
-    digitalWrite(nightPin, LOW);
-    client.publish(allPub, "OSH Bed Desk in Night Mode");
   }
   if (((char)payload[0] == '1') && !strcmp(topic, start_com))
   {
@@ -209,8 +196,6 @@ void reconnect()
       client.subscribe(desk3_com);
       client.loop();
       client.subscribe(desk4_com);
-      client.loop();
-      client.subscribe(nightMode);
       client.loop();
       client.subscribe(test_com);
       client.loop();
