@@ -32,7 +32,7 @@ JACK W. O'REILLY
 const char* ssid = "oreilly";  //wifi ssid
 const char* password = "9232616cc8";  //wifi password
 const char* mqtt_server = "mqtt.oreillyj.com";  //server IP (port later defined)
-int mqtt_port = 1884;
+int mqtt_port = 1883;
 const char* mqtt_user = "coffee";
 const char* mqtt_pass = "24518000coffee";
 
@@ -48,7 +48,7 @@ const char* openhab_reconnect = "osh/kit/coffee/reconnect";  //to publish to ope
 const char* allPub = "osh/all/stat";
 const char* version_stat = "osh/kit/coffee/version";
 
-const char* versionNum = "1.11";
+const char* versionNum = "1.12";
 
 bool coffeeState = LOW;  //variable for testing if coffee maker on or off
 bool prepStat = LOW;  //state of prep (HIGH if ready to be turned on); only applies to commands over mqtt
@@ -95,6 +95,7 @@ void setup_wifi() {
   Serial.print("Connecting to ");
   Serial.println(ssid);
 
+  WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);  //starts wifi connection
 
   while (WiFi.status() != WL_CONNECTED) {  //while wifi not connected...
