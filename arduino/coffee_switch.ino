@@ -22,7 +22,7 @@ has proven the necessity of this.
 
 //SIGNED//
 JACK W. O'REILLY
-25 Mar 2016*/
+6 Jun 2016*/
 
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>  //mqtt client library
