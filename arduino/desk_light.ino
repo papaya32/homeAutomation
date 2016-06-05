@@ -4,7 +4,7 @@ wrong topic issues. Looking good.
 
 //SIGNED//
 JACK W. O'REILLY
-24 Apr 2016*/
+4 Jun 2016*/
 
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>
@@ -16,7 +16,7 @@ int mqtt_port = 1883;  //changed from previously 1884 as a contingency plan
 const char* mqtt_user = "desk";
 const char* mqtt_pass = "24518000desk";
 
-const char* versionNum = "1.03";
+const char* versionNum = "1.04";
 
 const char* desk1_com = "osh/bed/desk1/com";
 const char* desk2_com = "osh/bed/desk2/com";
@@ -90,7 +90,8 @@ void setup_wifi()
   Serial.println();  //all for serial bridge debugging
   Serial.print("Connecting to: ");
   Serial.println(ssid);
-  
+
+  WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);  //connect to wifi
   
   while (WiFi.status() != WL_CONNECTED)
