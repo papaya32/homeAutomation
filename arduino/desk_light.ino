@@ -2,21 +2,37 @@
 fixes night mode problems and some simple
 wrong topic issues. Looking good.
 
+Added FOTA and WiFi Changes
+
 //SIGNED//
 JACK W. O'REILLY
-4 Jun 2016*/
+20 July 2016*/
 
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>
+#include <ESP8266httpUpdate.h>
+#include <ESP8266HTTPClient.h>
+#include <ESP8266WebServer.h>
+#include <EEPROM.h>
 
-const char* ssid = "oreilly";
-const char* password = "9232616cc8";
+ESP8266WebServer server(80);
+
+String serial = "1954973";
+String versionCode = "002";
+String type = "13";
+const char* versionNum = "1.90";
+String versionTotal = type + ':' + serial + ':' + versionCode;
+const char* ssid = serial.c_str();
+const char* passphrase = "PapI2016";
+String mqtt_user = "";
+String mqtt_pass = "";
+String st;
+String content;
+int statusCode;
+unsigned long int lastTime = 0;
+
 const char* mqtt_server = "mqtt.oreillyj.com";
 int mqtt_port = 1883;  //changed from previously 1884 as a contingency plan
-const char* mqtt_user = "desk";
-const char* mqtt_pass = "24518000desk";
-
-const char* versionNum = "1.04";
 
 const char* desk1_com = "osh/bed/desk1/com";
 const char* desk2_com = "osh/bed/desk2/com";
@@ -50,12 +66,19 @@ int desk1Pin = 2;
 int desk2Pin = 4;
 int desk3Pin = 5;
 int desk4Pin = 13;
+int resetPin = 14;
 
 void lightSwitch(int, bool);  //called whenever a relay needs to be flipped, arguments are relay number and state to flip to
 void publishStats();  //function that simply publishes all of the relay stats (desk1 on, desk2 off, etc)
 void tempFunc(int);  //called when temp button is pressed, either turns all off or previously on on
-void setup_wifi();
+//void setup_wifi();
 void callback(char*, byte*, unsigned int);
+bool testWiFi();
+void launchWeb(int);
+void setupAP();
+void createWebServer(int);
+void reset();
+void resetTimer();
 
 WiFiClient espClient;
 PubSubClient client(espClient);
@@ -65,10 +88,15 @@ int value = 0;
 
 void setup()
 {
+  EEPROM.begin(512);
+  
   pinMode(desk1Pin, OUTPUT);
   pinMode(desk2Pin, OUTPUT);
   pinMode(desk3Pin, OUTPUT);
   pinMode(desk4Pin, OUTPUT);
+  pinMode(resetPin, INPUT_PULLUP);
+
+  attachInterrupt(digitalPinToInterrupt(resetPin), reset, FALLING);
 
   lightSwitch(1, LOW);  //initialize all relays by flipping off
   lightSwitch(2, LOW);
@@ -79,30 +107,214 @@ void setup()
   Serial.println();
   Serial.print("Desk Light Pap Version: ");  //for my reference in debugging
   Serial.println(versionNum);
-  setup_wifi();  //connect to wifi
+  //setup_wifi();  //connect to wifi
   client.setServer(mqtt_server, mqtt_port);  //initialize mqtt server connection
   client.setCallback(callback);
+
+  String esid = "";
+  String epass = "";
+
+  for (int i = 0; i < 32; ++i)
+  {
+    esid += char(EEPROM.read(i));
+  }
+  for (int i = 32; i < 96; ++i)
+  {
+    epass += char(EEPROM.read(i));
+  }
+  if (esid.length() > 1)
+  {
+    WiFi.begin(esid.c_str(), epass.c_str());
+    WiFi.mode(WIFI_STA);
+    if (testWiFi())
+    {
+      launchWeb(0);
+      return;
+    }
+  }
+  setupAP();
 }
 
-void setup_wifi()
+bool testWiFi(void)
 {
-  delay(10);
-  Serial.println();  //all for serial bridge debugging
-  Serial.print("Connecting to: ");
-  Serial.println(ssid);
-
-  WiFi.mode(WIFI_STA);
-  WiFi.begin(ssid, password);  //connect to wifi
-  
-  while (WiFi.status() != WL_CONNECTED)
+  int c = 0;
+  Serial.println("TESTING WIFI");
+  while (c < 20)
   {
-    Serial.print(".");
+    if (WiFi.status() == WL_CONNECTED)
+    {
+      mqtt_user = "";
+      mqtt_pass = "";
+      for (int i = 0; i < 32; ++i)
+      {
+        mqtt_user += char(EEPROM.read(i + 96));
+        mqtt_pass += char(EEPROM.read(i + 128));
+      }
+      return true;
+    }
     delay(500);
+    c++;
   }
+  return false;
+}
+
+void launchWeb (int webtype)
+{
   Serial.println();
   Serial.println("WiFi Connected");
-  Serial.print("IP address: ");
+  Serial.print("Local IP: ");
   Serial.println(WiFi.localIP());
+  Serial.print("SoftAP IP: ");
+  Serial.println(WiFi.softAPIP());
+  createWebServer(webtype);
+  server.begin();
+  Serial.println("Server started");
+}
+
+void setupAP(void)
+{
+  WiFi.mode(WIFI_STA);
+  WiFi.disconnect();
+  delay(100);
+
+  int n = WiFi.scanNetworks();
+  st = "<ol>";
+  for (int i = 0; i < n; ++i)
+  {
+    st += "<li>";
+    st += WiFi.SSID(i);
+    st += "</li>";
+  }
+  st += "</ol>";
+  delay(100);
+  WiFi.softAP(ssid, passphrase, 6);
+  launchWeb(1);
+}
+
+void createWebServer(int webtype)
+{
+  if (webtype == 1)
+  {
+    server.on("/", []()
+    {
+      IPAddress ip = WiFi.softAPIP();
+      String ipStr = String (ip[0]) + '.' + String (ip[1]) + '.' + String (ip[2]) + '.' + String (ip[3]);
+      content = "<!DOCTYPE HTML>\r\n<html>PapI 2016";
+      content += "<p>";
+      content += st;
+      content += "</p><form method='post' action='apset'><lable>SSID: </label><input name='ssid' length=32><input type='password' name='pass' lengthe=64><input type='submit'></form>";
+      content += "</html>";
+      server.send(200, "text/html", content);
+    });
+    server.on("/userset", []()
+    {
+      String user_name = server.arg("user_name");
+      String password = server.arg("password");
+      Serial.print("Username: ");
+      Serial.println(user_name);
+      Serial.print("Pass: ");
+      Serial.println(password);
+      mqtt_user = const_cast<char*>(user_name.c_str());
+      mqtt_pass = const_cast<char*>(password.c_str());
+      if  (user_name.length() > 0 && password.length() > 0)
+      {
+        for (int i = 0; i < user_name.length(); ++i)
+        {
+          EEPROM.write(i + 96, user_name[i]);
+        }
+        for (int i = 0; i < password.length(); ++i)
+        {
+          EEPROM.write(i + 128, password[i]);
+        }
+        EEPROM.commit();
+      }
+      content = "<!DOCTYPE HTML>\r\n<html>PapI 2016";
+      content += "<h1>Success!</h1><p>Using username: ";
+      content += user_name;
+      content += ".</p><p>Resetting in 5 seconds...</p></html>";
+      server.send(200, "text/html", content);
+      delay(5000);
+      ESP.restart();
+    });
+    server.on("/apset", []()
+    {
+      String qsid = server.arg("ssid");
+      String qpass = server.arg("pass");
+      if (qsid.length() > 0 && qpass.length() > 0)
+      {
+        for (int i = 0; i < qsid.length(); ++i)
+        {
+          EEPROM.write(i, qsid[i]);
+        }
+        for (int i = 0; i < qpass.length(); ++i)
+        {
+          EEPROM.write(32 + i, qpass[i]);
+        }
+        EEPROM.commit();
+        content = "<!DOCTYPE HTML>\r\n<html>PapI 2016";
+        content += "<h1>Success!</h1><br><p>Connecting to ";
+        content += qsid;
+        content += " upon reset.</p><br><h3>Now enter your PapI credentials:</h3><br><form method='post' action='userset'><label>Username: </label><input name='user_name' length=32><input type='password' name='password' length=32><input type='submit'></form>";
+        content += "</html>";
+        server.send(200, "text/html", content);
+     }
+     else
+     {
+      content = "{\"Error\":\"404 not found\"}";
+      statusCode=404;
+      Serial.println("Sending 404");
+     }
+     server.send(statusCode, "application/json", content);
+    });
+  }
+  else if (webtype == 0)
+  {
+    server.on("/", []()
+    {
+      IPAddress ip = WiFi.localIP();
+      String ipStr = String(ip[0]) + '.' + String(ip[1]) + '.' + String(ip[2]) + '.' + String(ip[3]);
+      server.send(200, "application/json", "{\"IP\"" + ipStr + "\"}");
+    });
+    server.on("/cleareeprom", []()
+    {
+      content = "<!DOCTYPE HTML>\r\n<html>";
+      content += "<p>Clearing the EEPROM</p></html>";
+      server.send(200, "text/html", content);
+      for (int i = 0; i < 96; ++i)
+      {
+        EEPROM.write(i, 0);
+      }
+      EEPROM.commit();
+    });
+  }
+}
+
+void reset()
+{
+  resetTimer();
+}
+
+void resetTimer()
+{
+  Serial.println("Interrupted");
+  int counter = 0;
+  while (!digitalRead(resetPin))
+  {
+    delayMicroseconds(100000);
+    counter++;
+    Serial.println(counter);
+  }
+  if ((counter * 100) >= 5000)
+  {
+    Serial.println("Resetting");
+    for (int i = 1; i < 160; ++i)
+    {
+      EEPROM.write(i, 0);
+    }
+    EEPROM.commit();
+    Serial.println("CLEARED");
+    ESP.restart();
+  }
 }
 
 void callback(char* topic, byte* payload, unsigned int length)
@@ -186,7 +398,7 @@ void reconnect()
   while(!client.connected())
   {
     Serial.print("Attempting MQTT Connection...");
-    client.connect("ESP8266Desk", mqtt_user, mqtt_pass);  //connect with unique identifier
+    client.connect(serial.c_str(), mqtt_user.c_str(), mqtt_pass.c_str());  //connect with unique identifier
     if (client.connected())
     {
       Serial.println("Connected");
@@ -217,7 +429,8 @@ void reconnect()
       Serial.println("Try again in 5 Seconds");
       if (WiFi.status() != WL_CONNECTED)  //if we're not connected to wifi (possible cause of mqtt failure)
       {
-        setup_wifi();
+        //setup_wifi();
+        testWiFi();
       }
       delay(5000);
     }
@@ -226,7 +439,26 @@ void reconnect()
 
 void loop()
 {
-  if (!client.connected())
+  server.handleClient();
+  if (((millis() - lastTime) > 60 * 10 * 1000) || (lastTime == 0))
+  {
+    t_httpUpdate_return ret = ESPhttpUpdate.update("update.oreillyj.com", 80, "/downTest/updater.php", versionTotal);
+    switch (ret)
+    {
+      case HTTP_UPDATE_FAILED:
+        Serial.println("[Update] Update failed");
+        lastTime = millis();
+        break;
+      case HTTP_UPDATE_NO_UPDATES:
+        Serial.println("[Update] No Updates");
+        lastTime = millis();
+        break;
+      case HTTP_UPDATE_OK:
+        Serial.println("[Update] Update OK");
+        break;
+    }
+  }
+  if (!client.connected() && (WiFi.status() == WL_CONNECTED))
   {
     reconnect();
   }
