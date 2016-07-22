@@ -33,9 +33,9 @@ JACK W. O'REILLY
 ESP8266WebServer server(80);
 
 String serial = "1954683";
-String versionCode = "002";
+String versionCode = "003";
 String type = "14";
-const char* versionNum = "1.99";
+const char* versionNum = "2.00";
 String versionTotal = type + ':' + serial + ':' + versionCode;
 const char* ssid = serial.c_str();
 //const char* ssid = "1954683";
@@ -146,7 +146,7 @@ bool testWiFi(void)
 {
   int c = 0;
   Serial.println("TESTING WIFI");
-  while (c < 20)
+  while (c < 10)
   {
     if (WiFi.status() == WL_CONNECTED)
     {
@@ -159,7 +159,18 @@ bool testWiFi(void)
       }
       return true;
     }
-    delay(500);
+    analogWrite(ledPin, 0);
+    for (int i = 0; i < 50; i++)
+    {
+      delay(10);
+      pushTest();
+    }
+    analogWrite(ledPin, 1023);
+    for (int i = 0; i < 50; i++)
+    {
+      delay(10);
+      pushTest();
+    }
     c++;
   }
   return false;
