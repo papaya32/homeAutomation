@@ -33,9 +33,9 @@ JACK W. O'REILLY
 ESP8266WebServer server(80);
 
 String serial = "1954683";
-String versionCode = "003";
+String versionCode = "004";
 String type = "14";
-const char* versionNum = "2.00";
+const char* versionNum = "2.01";
 String versionTotal = type + ':' + serial + ':' + versionCode;
 const char* ssid = serial.c_str();
 //const char* ssid = "1954683";
@@ -82,6 +82,7 @@ bool bed1Stat = LOW;  //last state of bed button (for toggling)
 bool currentStateNight = LOW;  //see above :)
 bool lastStateNight = LOW;
 bool tempStat = LOW;
+bool restartTest = LOW;
 
 int relayPin = 14;  //pin for controlling relay which controls light
 int nightModePin = 12;  //pin for night mode button
@@ -425,7 +426,11 @@ void reconnect()
     client.subscribe(openhab_start);
     client.loop();
     
-    client.publish(openhab_reconnect, "ON");
+    if (!restartTest)
+    {
+      client.publish(openhab_reconnect, "ON");
+      restartTest = HIGH;
+    }
     client.publish(version_stat, versionNum); 
     } else {
       Serial.print("failed, rc=");
