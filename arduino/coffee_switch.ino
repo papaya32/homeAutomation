@@ -36,12 +36,13 @@ JACK W. O'REILLY
 ESP8266WebServer server(80);
 
 String serial = "4681973";
-String versionCode = "019";
+String versionCode = "020";
 String type = "16";
 String versionTotal = type + ':' + serial + ':' + versionCode;
 //const char* ssid = serial.c_str();
 const char* ssid = "4681973";
 const char* passphrase = "PapI2016";
+const char* versionNum = "2.02";
 String st;
 String content;
 int statusCode;
@@ -72,8 +73,6 @@ const char* openhab_test = "osh/kit/coffee/openhab";  //for openhab testing if e
 const char* openhab_reconnect = "osh/kit/coffee/reconnect";  //to publish to openhab when mqtt reconnects
 const char* allPub = "osh/all/stat";
 const char* version_stat = "osh/kit/coffee/version";
-
-const char* versionNum = "2.01";
 
 bool coffeeState = LOW;  //variable for testing if coffee maker on or off
 bool prepStat = LOW;  //state of prep (HIGH if ready to be turned on); only applies to commands over mqtt
@@ -161,9 +160,17 @@ bool testWiFi(void)
       return true;
     }
     analogWrite(ledPin, 1023);
-    delay(500);
+    for (int i = 0; i < 50; i++)
+    {
+      delay(10);
+      pushTest();
+    }
     analogWrite(ledPin, 0);
-    delay(500);
+    for (int i = 0; i < 50; i++)
+    {
+      delay(10);
+      pushTest();
+    }
     c++;
   }
   return false;
