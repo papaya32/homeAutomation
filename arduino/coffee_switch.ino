@@ -36,13 +36,13 @@ JACK W. O'REILLY
 ESP8266WebServer server(80);
 
 String serial = "4681973";
-String versionCode = "020";
+String versionCode = "021";
 String type = "16";
 String versionTotal = type + ':' + serial + ':' + versionCode;
 //const char* ssid = serial.c_str();
 const char* ssid = "4681973";
 const char* passphrase = "PapI2016";
-const char* versionNum = "2.02";
+const char* versionNum = "2.03";
 String st;
 String content;
 int statusCode;
@@ -83,6 +83,7 @@ int ledPin = 16;  //status led pin, connected to actual led built in on board
 int prepButton = 4;  //input button pin to push when the coffee maker has coffee and water in it
 int onPin = 13;  //connected to coffee maker's board where the on indicator (built into board) lives
 int resetPin = 5;
+bool restartTest = LOW;
 
 void pushTest();  //function for testing for button presses
 void coffeeSwitch();  //simple function to flip relay and update on/off status
@@ -425,11 +426,14 @@ void reconnect() {  //this function is called repeatedly until mqtt is connected
       client.loop();  //workaround for error in library causing mqtt reconnect issue with multiple subscriptions
       client.subscribe(test_com);
       client.loop();
+      if (!restartTest)
+      {
+        client.publish(openhab_reconnect, "ON");
+        restartTest = HIGH;
+      }
     client.subscribe(openhab_start);
     client.loop();
-    
-    client.publish(openhab_reconnect, "ON");
-      
+
       if (WiFi.status() != WL_CONNECTED)  //if the wifi is disconnected
       {
         testWiFi();  //reconnect to wifi, probable cause of mqtt disconnect
