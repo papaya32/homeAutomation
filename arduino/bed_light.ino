@@ -19,9 +19,10 @@ Version Notes:
 1. Added FOTA support.
 2. Added ability for adapting to different WiFi
 networks.
+3. Changed type number.
 //SIGNED//
 JACK W. O'REILLY
-20 July 2016*/
+15 Sept 2016*/
 
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>  //mqtt client library
@@ -34,8 +35,8 @@ ESP8266WebServer server(80);
 
 String serial = "1954683";
 String versionCode = "004";
-String type = "14";
-const char* versionNum = "2.01";
+String type = "11";
+const char* versionNum = "2.05";
 String versionTotal = type + ':' + serial + ':' + versionCode;
 const char* ssid = serial.c_str();
 //const char* ssid = "1954683";
