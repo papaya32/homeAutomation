@@ -14,7 +14,7 @@ this a permanent and not-super-jenk operation.
 2. Good comments need to be added as always.
 //SIGNED//
 JACK W. O'REILLY
-4 Apr 2016*/
+23 Oct 2016*/
 
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>  //mqtt client library
@@ -25,9 +25,9 @@ JACK W. O'REILLY
 const char* ssid = "oreilly";  //wifi ssid
 const char* password = "9232616cc8";  //wifi password
 const char* mqtt_server = "mqtt.oreillyj.com";  //server IP (port later defined)
-int mqtt_port = 1884;
-const char* mqtt_user = "lock1";
-const char* mqtt_pass = "24518000lock1";
+int mqtt_port = 1883;
+const char* mqtt_user = "papaya96";
+const char* mqtt_pass = "24518000jJ";
 
 const char* versionNum = "1.45";
 
@@ -51,9 +51,9 @@ int lockLed = 16;
 int unlockLed = 5;
 int doorSensor = 15;
 
-#define buttonUnlock 12
+#define buttonUnlock 0
 #define buttonLock 13
-#define buttonWait 0
+#define buttonWait 12
 #define accessRelay 2
 #define doorBell 4
 
@@ -61,7 +61,7 @@ bool currentStateButton = LOW;
 bool lastStateButton = LOW;
 
 #define numButtons 5
-char* buttonArray[numButtons] = {"12", "4", "13", "2", "0"};
+char* buttonArray[numButtons] = {"0", "13", "12", "2", "0"};
 
 int lockDegree = 127;
 int counter = 0;
@@ -105,6 +105,7 @@ void setup()
 
   analogWrite(unlockLed, 0);
   analogWrite(lockLed, 1023);
+  //lockServo.attach(servoPin);
 }
 
 void setup_wifi()
@@ -252,7 +253,6 @@ void loop()
     yield();
     client.loop();
   }
-  if ((millis() - tester) >= 2) {Serial.println("DICKS"); Serial.println(millis() - tester);}
   if (lockTester)
   {
     delay(40);
@@ -272,6 +272,7 @@ void lockDoor(int lockMode)  //door lock function
     lockServo.attach(servoPin);
     delay(20);
     lockServo.write(0);
+    Serial.println(0);
     delay(1250);
     lockServo.detach();
     lockState = HIGH;
@@ -286,6 +287,7 @@ void lockDoor(int lockMode)  //door lock function
     lockServo.attach(servoPin);
     delay(20);
     lockServo.write(lockDegree);
+    Serial.println(lockDegree);
     delay(1250);
     lockServo.detach();
     lockState = LOW;
@@ -330,7 +332,6 @@ void buttonPress()  //function that
     currentStateButton = digitalRead(currentButton);  //current state is reading the state of the button
     if (!currentStateButton)  //if the button is currently being pressed...
     {
-      Serial.println(millis());
       yield();
       switch (currentButton)  //switch statement where the argument is the pin number that is currently being pushed
       {
@@ -346,8 +347,6 @@ void buttonPress()  //function that
           break;
         case accessRelay:
           Serial.println("accessRelay");
-          Serial.println(millis());
-          Serial.println(digitalRead(accessRelay));
           delay(5);
           counter = 5;
           while (!digitalRead(accessRelay))
@@ -357,8 +356,6 @@ void buttonPress()  //function that
             yield();
             counter += (millis() - tester);
           }
-          Serial.print("Counter: ");
-          Serial.println(counter);
           if ((counter >= 240) && (counter <= 260))
           {
             lockDoor(0);
